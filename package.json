@@ -1,0 +1,18 @@
+{
+  "name": "cafe-pos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A locally deployable cafe point-of-sale application.",
+  "scripts": {
+    "dev": "concurrently -k -n CLIENT,SERVER -c cyan,magenta \"npm run dev --prefix client\" \"npm run dev --prefix server\"",
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "lint": "npm run lint --prefix client && npm run lint --prefix server",
+    "typecheck": "npm run typecheck --prefix client && npm run typecheck --prefix server",
+    "build": "npm run build --prefix client && npm run build --prefix server",
+    "test": "npm run test --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
