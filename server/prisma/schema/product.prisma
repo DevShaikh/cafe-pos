@@ -2,7 +2,7 @@ model Product {
   id          String   @id @default(uuid())
   name        String
   description String?
-  price       Int
+  price       Decimal
   category    String
   imageUrl    String?
   isAvailable Boolean  @default(true)

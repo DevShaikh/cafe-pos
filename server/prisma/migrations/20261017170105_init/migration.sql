@@ -3,7 +3,7 @@ CREATE TABLE "products" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
     "description" TEXT,
-    "pricePaisa" INTEGER NOT NULL,
+    "price" DECIMAL NOT NULL,
     "category" TEXT NOT NULL,
     "imageUrl" TEXT,
     "isAvailable" BOOLEAN NOT NULL DEFAULT true,
