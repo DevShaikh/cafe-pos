@@ -10,9 +10,9 @@ const adapter = new PrismaPg({
   connectionString: configuration.databaseUrl,
 });
 
-export const prisma =
+export const prismaClient =
   globalForPrisma.prisma ?? new PrismaClient({ adapter });
 
 if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  globalForPrisma.prisma = prismaClient;
 }

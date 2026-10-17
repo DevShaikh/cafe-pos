@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const productIdSchema = z.uuid();
+
 export const productListQuerySchema = z
   .object({
     search: z.string().trim().min(1).max(100).optional(),
@@ -8,19 +10,16 @@ export const productListQuerySchema = z
   })
   .strict();
 
-export const productIdSchema = z.uuid();
-
 export const createProductSchema = z
   .object({
     name: z.string().trim().min(1).max(120),
     description: z.string().trim().max(2000).optional(),
-    price: z
-      .string()
-      .regex(/^(?:0|[1-9]\d{0,7})(?:\.\d{1,2})?$/, {
-        message: "Price must be a non-negative amount with at most two decimals.",
-      }),
+    // Sent as a string to avoid float rounding, e.g. "120.00"
+    price: z.string().regex(/^(?:0|[1-9]\d{0,7})(?:\.\d{1,2})?$/, {
+      message: "Price must be a non-negative amount with at most two decimals.",
+    }),
     category: z.string().trim().min(1).max(60),
-    imageUrl: z.url().optional(),
+    imageUrl: z.url({ protocol: /^https?$/ }).optional(),
   })
   .strict();
 

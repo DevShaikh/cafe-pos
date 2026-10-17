@@ -4,7 +4,7 @@ import { test } from "node:test";
 import type { AddressInfo } from "node:net";
 import { createApp } from "./app.js";
 import { AppError } from "./utils/app-error.js";
-import type { ProductRecord } from "./modules/products/product.service.js";
+import type { ProductRecord } from "./modules/product/product.service.js";
 import { HealthService } from "./modules/health/health.service.js";
 
 const sampleProduct: ProductRecord = {
@@ -118,9 +118,7 @@ test("CORS only allows the configured client origin", async () => {
 
 test("product detail route returns a product by UUID", async () => {
   await withApp(dependencies, async (baseUrl) => {
-    const response = await fetch(
-      `${baseUrl}/api/products/${sampleProduct.id}`,
-    );
+    const response = await fetch(`${baseUrl}/api/products/${sampleProduct.id}`);
 
     assert.equal(response.status, 200);
     const body = await response.json();
@@ -136,10 +134,7 @@ test("product query parameters are validated before calling the service", async 
     );
 
     assert.equal(response.status, 400);
-    assert.equal(
-      (await response.json()).error.code,
-      "VALIDATION_ERROR",
-    );
+    assert.equal((await response.json()).error.code, "VALIDATION_ERROR");
   });
 });
 
@@ -174,10 +169,7 @@ test("product creation validates decimal price input", async () => {
     });
 
     assert.equal(response.status, 400);
-    assert.equal(
-      (await response.json()).error.code,
-      "VALIDATION_ERROR",
-    );
+    assert.equal((await response.json()).error.code, "VALIDATION_ERROR");
   });
 });
 

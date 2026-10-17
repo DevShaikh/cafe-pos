@@ -1,4 +1,4 @@
-export class AppError extends Error {
+class AppError extends Error {
   constructor(
     readonly statusCode: number,
     readonly code: string,
@@ -9,3 +9,5 @@ export class AppError extends Error {
     this.name = "AppError";
   }
 }
+
+export default AppError;
