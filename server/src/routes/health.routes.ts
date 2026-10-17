@@ -4,7 +4,7 @@ import * as healthController from "../controllers/healthController";
 
 const router = Router();
 
-// Get user's current XP balance
+// Check that the API is up and can reach the database
 router.get("/", healthController.checkHealth);
 
 export default router;
