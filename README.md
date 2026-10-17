@@ -1,117 +1,95 @@
 # Cafe POS
 
-Locally deployable cafe point-of-sale application. Development follows the phases below; work only on the currently approved phase.
+A point-of-sale app for a cafe that runs locally: browse the menu, build a cart, check out and keep order history.
 
-## Stack
+**Status:** backend foundation and product listing are done. Cart, checkout and orders are still to come.
 
-- **Client:** Next.js App Router, React, TypeScript, Tailwind CSS, shadcn/ui
-- **Server:** Node.js, Express, TypeScript, Zod
-- **Database:** PostgreSQL with Prisma ORM 7 and the PostgreSQL driver adapter
-- **State and tooling:** Zustand (when cart work begins), npm, ESLint, Concurrently
+## Tech stack
 
-The client communicates with the server over HTTP. PostgreSQL is accessed only by the server.
+- **Client:** Next.js (App Router), React, TypeScript, Tailwind CSS
+- **Server:** Node.js, Express 5, TypeScript, Zod
+- **Database:** PostgreSQL with Prisma 7
 
-## Structure
+The client talks to the server over HTTP. Only the server talks to the database.
 
-```text
-client/
-  src/
-    app/                 # Next.js App Router
-    components/
-    hooks/
-    lib/
-    store/
-    types/
-  public/
-  .env.example
-server/
-  prisma/
-    schema/              # Prisma 7 multi-file schema
-  seeds/
-  src/
-    config/
-    controllers/
-    lib/
-    middleware/
-    routes/
-    schemas/
-    services/
-    utils/
-    app.ts
-    app.test.ts
-    server.ts
-  .env                   # Local only; ignored by Git
-  package.json
-  tsconfig.json
-.github/
-  copilot-instructions.md
-  prompts/plan-next-step.prompt.md
-package.json
-README.md
+## Getting started
+
+You need Node.js 20.9+, npm and a local PostgreSQL.
+
+**1. Install dependencies**
+
+```bash
+npm install
+npm install --prefix client
+npm install --prefix server
 ```
 
-## Local setup
+**2. Create the database**
 
-Prerequisites: Node.js 20.9 or newer, npm, Git, and a local PostgreSQL installation.
+Create an empty PostgreSQL database named `cafe_pos`. The database user must be allowed to create databases, because Prisma uses a temporary one when it creates migrations.
 
-1. Install dependencies:
+**3. Configure the server**
 
-   ```bash
-   npm install
-   npm install --prefix client
-   npm install --prefix server
-   ```
+Create `server/.env` (it is ignored by Git):
 
-2. Copy the client template and create `server/.env` locally:
+```env
+NODE_ENV=development
+PORT=3000
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/cafe_pos?schema=public
+CLIENT_ORIGIN=http://localhost:3001
+```
 
-   ```powershell
-   Copy-Item client/.env.example client/.env.local
-   ```
+**4. Set up the database**
 
-   Configure `server/.env` with `NODE_ENV`, `PORT`, `DATABASE_URL`, and `CLIENT_ORIGIN`. Keep credentials private; `.env` files are ignored by Git.
+```bash
+npm run db:migrate --prefix server
+npm run db:seed --prefix server
+```
 
-3. Start PostgreSQL and create a local database named `cafe_pos`.
+The seed adds demo products and is safe to run again.
 
-4. Validate/generate the Prisma client and apply pending migrations:
+**5. Run the app**
 
-   ```bash
-   npm run db:validate --prefix server
-   npm run db:generate --prefix server
-   npm run db:migrate --prefix server
-   ```
+```bash
+npm run dev
+```
 
-5. Start the client and server together:
+- Client: http://localhost:3001
+- API: http://localhost:3000/api
 
-   ```bash
-   npm run dev
-   ```
+## Commands
 
-The client uses port `3000` by default. The server port and allowed client origin are configured in `server/.env`.
-
-## Common commands
-
-| Command | Purpose |
+| Command | What it does |
 | --- | --- |
-| `npm run dev` | Start client and server |
-| `npm run dev:client` / `npm run dev:server` | Start one application |
-| `npm run lint` | Lint both applications |
-| `npm run typecheck` | Type-check both applications |
-| `npm run build` | Build both applications |
+| `npm run dev` | Start client and server together |
+| `npm run lint` | Lint client and server |
+| `npm run typecheck` | Type-check client and server |
+| `npm run build` | Build client and server |
 | `npm test` | Run server tests |
-| `npm run db:status --prefix server` | Check Prisma migration status |
-| `npm run db:seed --prefix server` | Explicitly run the configured seed |
+| `npm run db:status --prefix server` | Show migration status |
 
-## Current scope
+## API
 
-The backend currently provides `GET /api/health` for checking PostgreSQL connectivity. The Prisma schema defines the Product model; product APIs and catalog UI are not yet part of the current implementation. Order models, cart, checkout, and order history remain for later approved phases.
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/health` | API and database status |
+| GET | `/api/products` | List products |
 
-When building frontend UI, use shadcn/ui. Put reusable colors in global theme tokens in `client/src/app/globals.css` and use those tokens rather than repeating custom colors in components.
+## Project layout
+
+```text
+client/            Next.js app
+server/
+  prisma/          Schema and migrations
+  seeds/           Demo data
+  src/             Express app: routes, controllers, services, schemas
+```
 
 ## Roadmap
 
-1. Project initialization
-2. PostgreSQL and backend foundation
-3. Product catalog
+1. ~~Project setup~~
+2. ~~Database and backend foundation~~
+3. Product catalog (in progress)
 4. Cart
 5. Checkout and saved orders
-6. Quality and polish
+6. Testing and polish
