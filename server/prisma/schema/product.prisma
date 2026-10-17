@@ -1,13 +1,13 @@
 model Product {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String   @db.VarChar(120)
-  description String?  @db.Text
-  price       Decimal  @db.Decimal(10, 2)
-  category    String   @db.VarChar(60)
-  imageUrl    String?  @db.Text
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  pricePaisa  Int
+  category    String
+  imageUrl    String?
   isAvailable Boolean  @default(true)
-  createdAt   DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([category, isAvailable])
   @@map("products")
