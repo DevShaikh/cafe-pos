@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "A locally deployable cafe point-of-sale application.",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "concurrently -k -n CLIENT,SERVER -c cyan,magenta \"npm run dev --prefix client\" \"npm run dev --prefix server\"",
     "dev:client": "npm run dev --prefix client",
@@ -10,9 +11,11 @@
     "lint": "npm run lint --prefix client && npm run lint --prefix server",
     "typecheck": "npm run typecheck --prefix client && npm run typecheck --prefix server",
     "build": "npm run build --prefix client && npm run build --prefix server",
-    "test": "npm run test --prefix server"
+    "test": "npm run test --prefix server",
+    "desktop": "electron ."
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "electron": "^44.9.0"
   }
 }
