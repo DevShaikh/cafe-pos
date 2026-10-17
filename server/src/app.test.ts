@@ -9,6 +9,8 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import type { Server } from "node:http";
+import os from "node:os";
+import path from "node:path";
 import type { AddressInfo } from "node:net";
 import { after, afterEach, before, mock, test } from "node:test";
 
@@ -23,7 +25,7 @@ before(async () => {
   // Must be set BEFORE the app is imported: config/env.ts reads these on import.
   // Values set here win over anything in server/.env.
   process.env.NODE_ENV = "test";
-  process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/test";
+  process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), "cafe-pos-test.db")}`;
   process.env.CLIENT_ORIGIN = CLIENT_ORIGIN;
 
   // tsx loads these as CommonJS, so the app is the module's `default` export.

@@ -1,4 +1,4 @@
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "../generated/prisma/client.js";
 import { configuration } from "../config/env.js";
 
@@ -6,8 +6,8 @@ const globalForPrisma = globalThis as typeof globalThis & {
   prisma?: PrismaClient;
 };
 
-const adapter = new PrismaPg({
-  connectionString: configuration.databaseUrl,
+const adapter = new PrismaBetterSqlite3({
+  url: configuration.databaseUrl,
 });
 
 export const prismaClient =
