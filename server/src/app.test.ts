@@ -1,234 +1,178 @@
+/**
+ * @file src/app.test.ts
+ * @description API tests for the Express app.
+ *
+ * No real database is used. Prisma's query method is replaced with a mock in
+ * each test, so the real controller, service, routes and middleware all run.
+ */
+
 import assert from "node:assert/strict";
 import { once } from "node:events";
-import { test } from "node:test";
+import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createApp } from "./app.js";
-import { AppError } from "./utils/app-error.js";
-import type { ProductRecord } from "./modules/product/product.service.js";
-import { HealthService } from "./modules/health/health.service.js";
+import { after, afterEach, before, mock, test } from "node:test";
 
-const sampleProduct: ProductRecord = {
-  id: "550e8400-e29b-41d4-a716-446655440000",
-  name: "Flat White",
-  description: null,
-  price: "4.50",
-  category: "Coffee",
-  imageUrl: null,
-  isAvailable: true,
-  createdAt: new Date("2026-01-01T00:00:00.000Z"),
-  updatedAt: new Date("2026-01-01T00:00:00.000Z"),
-};
+const CLIENT_ORIGIN = "http://localhost:3001";
 
-const productService = {
-  async list() {
-    return [sampleProduct];
-  },
-  async getById(id: string) {
-    if (id !== sampleProduct.id) {
-      throw new AppError(404, "PRODUCT_NOT_FOUND", "Product was not found.");
-    }
+let server: Server;
+let baseUrl: string;
+let prismaClient: typeof import("./lib/prismaClient").prismaClient;
+let originalQueryRaw: typeof prismaClient.$queryRaw;
 
-    return sampleProduct;
-  },
-  async create() {
-    return sampleProduct;
-  },
-};
+before(async () => {
+  // Must be set BEFORE the app is imported: config/env.ts reads these on import.
+  // Values set here win over anything in server/.env.
+  process.env.NODE_ENV = "test";
+  process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/test";
+  process.env.CLIENT_ORIGIN = CLIENT_ORIGIN;
 
-const dependencies = {
-  clientOrigin: "http://localhost:3000",
-  healthService: {
-    async checkDatabase() {},
-  },
-  productService,
-};
+  // tsx loads these as CommonJS, so the app is the module's `default` export.
+  // TypeScript's NodeNext typing wraps it one level deeper, hence the cast.
+  const { default: app } =
+    (await import("./app.js")) as unknown as typeof import("./app");
+  ({ prismaClient } = await import("./lib/prismaClient.js"));
+  originalQueryRaw = prismaClient.$queryRaw;
 
-test("health route reports a connected database", async () => {
-  await withApp(dependencies, async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/health`);
+  server = app.listen(0);
+  await once(server, "listening");
+  baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+});
 
-    assert.equal(response.status, 200);
-    assert.equal(response.headers.get("x-content-type-options"), "nosniff");
-    assert.deepEqual(await response.json(), {
-      status: "ok",
-      database: "connected",
-    });
+after(async () => {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
   });
 });
 
-test("health route reports database failures as service unavailable", async () => {
-  const unavailableDependencies = {
-    ...dependencies,
-    healthService: new HealthService({
-      async checkConnection() {
-        throw new Error("Connection refused");
-      },
-    }),
+afterEach(() => {
+  mock.restoreAll();
+  prismaClient.$queryRaw = originalQueryRaw;
+});
+
+// Prisma's client is a Proxy, which node:test's mock.method cannot wrap, so
+// $queryRaw is swapped by hand here and restored in afterEach.
+function stubQueryRaw(implementation: () => Promise<unknown>) {
+  prismaClient.$queryRaw =
+    implementation as unknown as typeof prismaClient.$queryRaw;
+}
+
+/** Pretend the database answers `SELECT 1` successfully. */
+function mockDatabaseUp() {
+  stubQueryRaw(async () => [{ "?column?": 1 }]);
+}
+
+/** Pretend the database cannot be reached. */
+function mockDatabaseDown() {
+  mock.method(console, "error", () => {}); // keep test output clean
+  stubQueryRaw(async () => {
+    throw new Error("connect ECONNREFUSED");
+  });
+}
+
+test("GET /api/health returns 200 when the database is reachable", async () => {
+  mockDatabaseUp();
+
+  const response = await fetch(`${baseUrl}/api/health`);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    success: true,
+    message: "Health check passed",
+    data: { status: "ok", database: "connected" },
+  });
+});
+
+test("GET /api/health returns a JSON error when the database is down", async () => {
+  mockDatabaseDown();
+
+  const response = await fetch(`${baseUrl}/api/health`);
+
+  assert.equal(response.status, 500);
+  assert.deepEqual(await response.json(), {
+    error: {
+      code: "DATABASE_CONNECTION_ERROR",
+      message: "Failed to connect to the database",
+    },
+  });
+});
+
+test("responses include Helmet security headers", async () => {
+  mockDatabaseUp();
+
+  const response = await fetch(`${baseUrl}/api/health`);
+
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+});
+
+test("CORS names only the configured client origin", async () => {
+  mockDatabaseUp();
+
+  for (const origin of [CLIENT_ORIGIN, "http://untrusted.example"]) {
+    const response = await fetch(`${baseUrl}/api/health`, {
+      headers: { Origin: origin },
+    });
+
+    // Browsers compare this header with the calling page's own origin, so a
+    // page served from untrusted.example is blocked from reading the response.
+    assert.equal(
+      response.headers.get("access-control-allow-origin"),
+      CLIENT_ORIGIN,
+    );
+  }
+});
+
+test("unknown routes return a JSON 404", async () => {
+  const response = await fetch(`${baseUrl}/api/not-a-route`);
+
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), {
+    error: {
+      code: "NOT_FOUND",
+      message: "Route /api/not-a-route not found.",
+    },
+  });
+});
+
+test("malformed JSON bodies return a JSON 400", async () => {
+  const response = await fetch(`${baseUrl}/api/health`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{ not valid json",
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, "INVALID_JSON");
+});
+
+test("error handler hides details of unexpected errors", async () => {
+  mock.method(console, "error", () => {});
+  const { errorHandler } = await import("./middleware/error-handler.js");
+
+  let statusCode = 0;
+  let body: unknown;
+  const fakeResponse = {
+    status(code: number) {
+      statusCode = code;
+      return this;
+    },
+    json(payload: unknown) {
+      body = payload;
+      return this;
+    },
   };
 
-  await withApp(unavailableDependencies, async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/health`);
+  errorHandler(
+    new Error("secret internal detail"),
+    {} as never,
+    fakeResponse as never,
+    () => {},
+  );
 
-    assert.equal(response.status, 503);
-    assert.deepEqual(await response.json(), {
-      error: {
-        code: "DATABASE_UNAVAILABLE",
-        message: "The database is unavailable.",
-      },
-    });
+  assert.equal(statusCode, 500);
+  assert.deepEqual(body, {
+    error: {
+      code: "INTERNAL_SERVER_ERROR",
+      message: "An unexpected error occurred.",
+    },
   });
 });
-
-test("product list route returns service results and CORS headers", async () => {
-  await withApp(dependencies, async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/products`, {
-      headers: { Origin: "http://localhost:3000" },
-    });
-
-    assert.equal(response.status, 200);
-    assert.equal(
-      response.headers.get("access-control-allow-origin"),
-      "http://localhost:3000",
-    );
-    assert.deepEqual(await response.json(), {
-      data: [
-        {
-          ...sampleProduct,
-          createdAt: sampleProduct.createdAt.toISOString(),
-          updatedAt: sampleProduct.updatedAt.toISOString(),
-        },
-      ],
-    });
-  });
-});
-
-test("CORS only allows the configured client origin", async () => {
-  await withApp(dependencies, async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/products`, {
-      headers: { Origin: "http://untrusted.example" },
-    });
-
-    assert.equal(response.status, 200);
-    assert.equal(
-      response.headers.get("access-control-allow-origin"),
-      "http://localhost:3000",
-    );
-  });
-});
-
-test("product detail route returns a product by UUID", async () => {
-  await withApp(dependencies, async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/products/${sampleProduct.id}`);
-
-    assert.equal(response.status, 200);
-    const body = await response.json();
-    assert.equal(body.data.id, sampleProduct.id);
-    assert.equal(body.data.price, "4.50");
-  });
-});
-
-test("product query parameters are validated before calling the service", async () => {
-  await withApp(dependencies, async (baseUrl) => {
-    const response = await fetch(
-      `${baseUrl}/api/products?includeUnavailable=sometimes`,
-    );
-
-    assert.equal(response.status, 400);
-    assert.equal((await response.json()).error.code, "VALIDATION_ERROR");
-  });
-});
-
-test("product creation accepts exact decimal string prices", async () => {
-  await withApp(dependencies, async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/products`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "Flat White",
-        price: "4.50",
-        category: "Coffee",
-      }),
-    });
-
-    assert.equal(response.status, 201);
-    const body = await response.json();
-    assert.equal(body.data.price, "4.50");
-  });
-});
-
-test("product creation validates decimal price input", async () => {
-  await withApp(dependencies, async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/products`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "Flat White",
-        price: 4.5,
-        category: "Coffee",
-      }),
-    });
-
-    assert.equal(response.status, 400);
-    assert.equal((await response.json()).error.code, "VALIDATION_ERROR");
-  });
-});
-
-test("product creation accepts urlencoded form bodies", async () => {
-  await withApp(dependencies, async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/products`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        name: "Flat White",
-        price: "4.50",
-        category: "Coffee",
-      }),
-    });
-
-    assert.equal(response.status, 201);
-  });
-});
-
-test("missing products return a structured not-found error", async () => {
-  await withApp(dependencies, async (baseUrl) => {
-    const response = await fetch(
-      `${baseUrl}/api/products/550e8400-e29b-41d4-a716-446655440001`,
-    );
-
-    assert.equal(response.status, 404);
-    assert.equal((await response.json()).error.code, "PRODUCT_NOT_FOUND");
-  });
-});
-
-test("unknown API routes return a structured not-found error", async () => {
-  await withApp(dependencies, async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/not-a-route`);
-
-    assert.equal(response.status, 404);
-    assert.deepEqual(await response.json(), {
-      error: {
-        code: "ROUTE_NOT_FOUND",
-        message: "Route was not found.",
-      },
-    });
-  });
-});
-
-async function withApp(
-  appDependencies: Parameters<typeof createApp>[0],
-  callback: (baseUrl: string) => Promise<void>,
-): Promise<void> {
-  const server = createApp(appDependencies).listen(0);
-  await once(server, "listening");
-
-  const address = server.address() as AddressInfo;
-  const baseUrl = `http://127.0.0.1:${address.port}`;
-
-  try {
-    await callback(baseUrl);
-  } finally {
-    await new Promise<void>((resolve, reject) => {
-      server.close((error) => (error ? reject(error) : resolve()));
-    });
-  }
-}

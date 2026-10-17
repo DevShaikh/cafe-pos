@@ -7,18 +7,21 @@ import express, { Application, Request, Response, NextFunction } from "express";
 
 import cors from "cors"; // For handling Cross-Origin Resource Sharing
 import helmet from "helmet"; // For setting various HTTP headers for security
+
+import configuration from "./config/env";
 import requestLogger from "./middleware/request-logger";
 
-import apiRoutes from "./routes";
 import AppError from "./utils/app-error";
+
 import { errorHandler } from "./middleware/error-handler";
+
+import apiRoutes from "./routes";
 
 const app: Application = express();
 
 // Essential Security Middleware
 app.use(helmet());
-app.use(cors());
-
+app.use(cors({ origin: configuration.clientOrigin }));
 // Body parsers
 app.use(express.json()); // Parses incoming requests with JSON payloads
 app.use(express.urlencoded({ extended: true })); // Parses incoming requests with URL-encoded payloads

@@ -5,7 +5,7 @@
   "description": "Express API for the Cafe POS application.",
   "scripts": {
     "dev": "prisma generate --schema prisma/schema && tsx watch src/server.ts",
-    "build": "prisma generate --schema prisma/schema && tsc",
+    "build": "prisma generate --schema prisma/schema && tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "lint": "eslint .",
     "typecheck": "prisma generate --schema prisma/schema && tsc --noEmit",
