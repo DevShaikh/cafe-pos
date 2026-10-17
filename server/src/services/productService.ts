@@ -10,7 +10,11 @@ import ApiError from "../utils/app-error";
 export const getProducts = async () => {
   try {
     const products = await prismaClient.product.findMany();
-    return products;
+    // Prisma's Decimal drops trailing zeros in JSON ("120"), so send "120.00"
+    return products.map((product) => ({
+      ...product,
+      price: product.price.toFixed(2),
+    }));
   } catch {
     throw new ApiError(
       500,
