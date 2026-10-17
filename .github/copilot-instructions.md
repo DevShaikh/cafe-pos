@@ -10,6 +10,7 @@ The current phase is **Step 2 — PostgreSQL and backend foundation**. Do not ad
 
 - `client/`: Next.js App Router, React, strict TypeScript, Tailwind CSS, shadcn/ui (Radix UI where appropriate), Zustand, Zod, React Hook Form when forms are introduced, Lucide React, and Framer Motion for restrained animation.
 - `server/`: Node.js, Express, TypeScript, REST JSON APIs, Zod validation, and modular routes/controllers/services/middleware as those features are implemented.
+- Keep client application source under `client/src/`. Keep backend shared configuration, Prisma access, middleware, and utilities under `server/src/config/`, `server/src/lib/`, `server/src/middleware/`, and `server/src/utils/`; organize each implemented API feature under `server/src/modules/<feature>/`.
 - Database: local PostgreSQL and Prisma ORM 7 only. Use Prisma's supported PostgreSQL driver adapter. Never add MongoDB or Mongoose.
 - Keep the Prisma 7 multi-file schema under `server/prisma/schema/`, with the single generator and datasource in `schema.prisma` and models separated by domain. Preserve the existing migration directory and do not reset or delete migration history.
 - Tooling: npm, Git, ESLint, and Concurrently.
@@ -26,7 +27,7 @@ Use stable compatible releases and preserve the existing package/app structure.
 - Use decimal-safe monetary representations in the database; do not use floating-point arithmetic as the authoritative source of money.
 - Preserve product name and unit-price snapshots for items on completed orders.
 - Prefer focused, readable changes that match existing naming, formatting, and patterns. Avoid unrelated features and new infrastructure.
-- Use shadcn/ui as the component library when building frontend UI. Define any reusable theme colors as global CSS theme tokens and consume those tokens instead of repeating custom color values in components.
+- Use shadcn/ui as the component library when building frontend UI. Define any reusable theme colors as global CSS theme tokens in `client/src/app/globals.css` and consume those tokens instead of repeating custom color values in components.
 - Do not add order models, order APIs, checkout, or POS screens before their approved roadmap steps.
 - Update directly related documentation when scripts, dependencies, configuration, or behavior change.
 

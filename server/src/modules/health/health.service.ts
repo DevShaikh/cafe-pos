@@ -1,4 +1,4 @@
-import { AppError } from "../../errors/app-error.js";
+import { AppError } from "../../utils/app-error.js";
 
 export interface DatabaseHealthRepository {
   checkConnection(): Promise<void>;

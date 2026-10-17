@@ -1,6 +1,6 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import type { PrismaClient } from "../../generated/prisma/client.js";
-import type { CreateProductInput, ProductListQuery } from "./product.schemas.js";
+import type { CreateProductInput, ProductListQuery } from "./product.schema.js";
 import type { ProductRecord, ProductRepository } from "./product.service.js";
 
 export class PrismaProductRepository implements ProductRepository {

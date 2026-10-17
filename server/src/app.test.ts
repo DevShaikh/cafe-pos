@@ -3,9 +3,9 @@ import { once } from "node:events";
 import { test } from "node:test";
 import type { AddressInfo } from "node:net";
 import { createApp } from "./app.js";
-import { AppError } from "./errors/app-error.js";
-import type { ProductRecord } from "./features/products/product.service.js";
-import { HealthService } from "./features/health/health.service.js";
+import { AppError } from "./utils/app-error.js";
+import type { ProductRecord } from "./modules/products/product.service.js";
+import { HealthService } from "./modules/health/health.service.js";
 
 const sampleProduct: ProductRecord = {
   id: "550e8400-e29b-41d4-a716-446655440000",
@@ -48,6 +48,7 @@ test("health route reports a connected database", async () => {
     const response = await fetch(`${baseUrl}/api/health`);
 
     assert.equal(response.status, 200);
+    assert.equal(response.headers.get("x-content-type-options"), "nosniff");
     assert.deepEqual(await response.json(), {
       status: "ok",
       database: "connected",
@@ -98,6 +99,20 @@ test("product list route returns service results and CORS headers", async () => 
         },
       ],
     });
+  });
+});
+
+test("CORS only allows the configured client origin", async () => {
+  await withApp(dependencies, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/products`, {
+      headers: { Origin: "http://untrusted.example" },
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(
+      response.headers.get("access-control-allow-origin"),
+      "http://localhost:3000",
+    );
   });
 });
 
@@ -158,22 +173,38 @@ test("product creation validates decimal price input", async () => {
       }),
     });
 
-    test("missing products return a structured not-found error", async () => {
-      await withApp(dependencies, async (baseUrl) => {
-        const response = await fetch(
-          `${baseUrl}/api/products/550e8400-e29b-41d4-a716-446655440001`,
-        );
-
-        assert.equal(response.status, 404);
-        assert.equal((await response.json()).error.code, "PRODUCT_NOT_FOUND");
-      });
-    });
-
     assert.equal(response.status, 400);
     assert.equal(
       (await response.json()).error.code,
       "VALIDATION_ERROR",
     );
+  });
+});
+
+test("product creation accepts urlencoded form bodies", async () => {
+  await withApp(dependencies, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/products`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        name: "Flat White",
+        price: "4.50",
+        category: "Coffee",
+      }),
+    });
+
+    assert.equal(response.status, 201);
+  });
+});
+
+test("missing products return a structured not-found error", async () => {
+  await withApp(dependencies, async (baseUrl) => {
+    const response = await fetch(
+      `${baseUrl}/api/products/550e8400-e29b-41d4-a716-446655440001`,
+    );
+
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).error.code, "PRODUCT_NOT_FOUND");
   });
 });
 

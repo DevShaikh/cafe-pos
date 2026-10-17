@@ -6,7 +6,7 @@ A locally deployable cafe point-of-sale application, built as a TypeScript monor
 
 **Step 1 — Project initialization: complete.**
 
-**Step 2 — PostgreSQL and backend foundation: in progress.** Prisma's Product schema, initial migration, and health/product API implementation are prepared. Applying the migration and verifying a real database connection requires a locally running PostgreSQL instance, which is not currently available in this environment. Order models, checkout, and POS UI remain out of scope.
+**Step 2 — PostgreSQL and backend foundation: in progress.** Prisma's Product schema and health/product APIs are implemented. PostgreSQL connectivity has been confirmed; the initial Product migration remains pending. Order models, checkout, and POS UI remain out of scope.
 
 ## Technology
 
@@ -21,12 +21,36 @@ The browser will communicate with the server over HTTP JSON APIs. Database acces
 
 ```text
 .
-├── client/                     # Next.js frontend
+├── client/
+│   ├── src/
+│   │   ├── app/                # Next.js App Router
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── lib/
+│   │   ├── store/
+│   │   └── types/
+│   ├── public/
+│   ├── .env.example
+│   └── package.json
 ├── server/
+│   ├── src/
+│   │   ├── config/
+│   │   ├── lib/
+│   │   ├── middleware/
+│   │   ├── modules/
+│   │   │   ├── health/
+│   │   │   └── products/
+│   │   ├── utils/
+│   │   ├── app.ts
+│   │   ├── app.test.ts
+│   │   ├── seed.ts
+│   │   └── server.ts
 │   ├── prisma/
 │   │   ├── schema/             # Prisma 7 multi-file schema
 │   │   └── migrations/         # Committed migration history
-│   └── src/                    # Express API, services, and Prisma client
+│   ├── .env.example
+│   ├── package.json
+│   └── tsconfig.json
 ├── .github/
 │   ├── copilot-instructions.md # Persistent project guidance
 │   └── prompts/
@@ -81,9 +105,11 @@ From the repository root:
    npm run dev
    ```
 
-The Next.js development server uses `http://localhost:3000`. The Express server uses `http://localhost:4000`. The API allows browser requests from the configured `CLIENT_ORIGIN`, defaulting to `http://localhost:3000`. The server validates its required PostgreSQL connection string at startup; the health endpoint reports database connectivity.
+The Next.js development server uses `http://localhost:3000` by default. The Express server port is set by `PORT` in `server/.env` (4000 by default). The API allows browser requests from the configured `CLIENT_ORIGIN`, defaulting to `http://localhost:3000`. The server validates its required PostgreSQL connection string at startup; the health endpoint reports database connectivity.
 
 To run just one application, use `npm run dev:client` or `npm run dev:server`. If port 3000 or 4000 is already in use, stop the conflicting process or configure a different available port; the server's `PORT` value is read from `server/.env`.
+
+The Express app applies Helmet security headers, restricted CORS, extended query parsing, JSON and URL-encoded body parsing, and request logging before API routes. Unknown routes and errors are handled after routes. The server uses an explicit Node HTTP server and attempts graceful shutdown on `SIGINT`/`SIGTERM`, uncaught exceptions, and unhandled promise rejections; it closes the HTTP listener and Prisma connection. `NODE_ENV` controls the startup mode log and accepts `development`, `test`, or `production`.
 
 ## Environment configuration
 
@@ -133,7 +159,7 @@ No later-phase feature should be started before its phase is approved.
 - Keep TypeScript strict and avoid `any`.
 - Store money in decimal-safe database types and preserve charged product name/price snapshots on order items.
 - Keep environment-specific configuration outside source code and never commit credentials.
-- Use shadcn/ui for frontend components. Put reusable colors in global theme tokens in `client/app/globals.css` and use semantic tokens rather than repeating custom color values in multiple components.
+- Use shadcn/ui for frontend components. Put reusable colors in global theme tokens in `client/src/app/globals.css` and use semantic tokens rather than repeating custom color values in multiple components.
 - Prefer the smallest implementation that supports the current phase; do not add accounts, inventory, branches, or unrelated infrastructure to the initial scope.
 
 ## Backend API (Step 2)

@@ -1,8 +1,8 @@
-import { AppError } from "../../errors/app-error.js";
+import { AppError } from "../../utils/app-error.js";
 import type {
   CreateProductInput,
   ProductListQuery,
-} from "./product.schemas.js";
+} from "./product.schema.js";
 
 export interface ProductRecord {
   id: string;

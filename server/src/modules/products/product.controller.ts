@@ -1,5 +1,5 @@
 import type { RequestHandler } from "express";
-import { createProductSchema, productIdSchema, productListQuerySchema } from "./product.schemas.js";
+import { createProductSchema, productIdSchema, productListQuerySchema } from "./product.schema.js";
 import type { ProductServiceContract } from "./product.service.js";
 
 export function createListProductsController(
