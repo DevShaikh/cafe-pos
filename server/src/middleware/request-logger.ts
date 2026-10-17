@@ -1,6 +1,6 @@
 import type { RequestHandler } from "express";
 
-export const requestLogger: RequestHandler = (request, response, next) => {
+const requestLogger: RequestHandler = (request, response, next) => {
   const requestPath = request.path;
   const startedAt = process.hrtime.bigint();
 
@@ -14,3 +14,5 @@ export const requestLogger: RequestHandler = (request, response, next) => {
 
   next();
 };
+
+export default requestLogger;

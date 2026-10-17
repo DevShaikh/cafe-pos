@@ -1,30 +1,40 @@
-import cors from "cors";
-import express from "express";
-import helmet from "helmet";
-import { errorHandler } from "./middleware/error-handler.js";
-import { notFound } from "./middleware/not-found.js";
-import { requestLogger } from "./middleware/request-logger.js";
-import { createRoutes, type RouteDependencies } from "./routes/index.js";
+/**
+ * @file src/app.ts
+ * @description Main Express application setup.
+ */
 
-interface AppDependencies extends RouteDependencies {
-  clientOrigin: string;
-}
+import express, { Application, Request, Response, NextFunction } from "express";
 
-export function createApp({
-  clientOrigin,
-  ...routeDependencies
-}: AppDependencies) {
-  const app = express();
+import cors from "cors"; // For handling Cross-Origin Resource Sharing
+import helmet from "helmet"; // For setting various HTTP headers for security
+import requestLogger from "./middleware/request-logger";
 
-  app.use(helmet());
-  app.use(cors({ origin: clientOrigin }));
-  app.use(express.json());
-  app.use(requestLogger);
+import apiRoutes from "./routes";
+import AppError from "./utils/app-error";
+import { errorHandler } from "./middleware/error-handler";
 
-  app.use("/api", createRoutes(routeDependencies));
+const app: Application = express();
 
-  app.use(notFound);
-  app.use(errorHandler);
+// Essential Security Middleware
+app.use(helmet());
+app.use(cors());
 
-  return app;
-}
+// Body parsers
+app.use(express.json()); // Parses incoming requests with JSON payloads
+app.use(express.urlencoded({ extended: true })); // Parses incoming requests with URL-encoded payloads
+
+// Custom Logging Middleware
+app.use(requestLogger);
+
+// API Routes
+app.use("/api", apiRoutes);
+
+// Handle 404 Not Found errors for any unhandled routes
+app.use((req: Request, res: Response, next: NextFunction) => {
+  next(new AppError(404, "NOT_FOUND", `Route ${req.originalUrl} not found.`));
+});
+
+// Global Error Handling Middleware (MUST be the last middleware)
+app.use(errorHandler);
+
+export default app;

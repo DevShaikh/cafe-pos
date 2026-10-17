@@ -1,23 +1,15 @@
 /**
  * @file src/routes/index.ts
- * @description Every API route in one place. Mounted at /api in app.ts.
+ * @description Central index for all API routes.
  */
+
 import { Router } from "express";
-import { checkHealth } from "../controllers/healthController";
-import {
-  createProduct,
-  getProductById,
-  getProducts,
-} from "../controllers/productController";
+
+import healthRoutes from "./health.routes";
 
 const router = Router();
 
-// Health
-router.get("/health", checkHealth);
-
-// Products
-router.get("/products", getProducts);
-router.get("/products/:id", getProductById);
-router.post("/products", createProduct);
+// Define API routes here
+router.use("/health", healthRoutes); // Mount health routes at /health
 
 export default router;
