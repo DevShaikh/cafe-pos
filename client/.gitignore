@@ -17,6 +17,13 @@
 /.next/
 /out/
 
+# Local SQLite database (never commit real data)
+/server/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
 # production
 /build
 
