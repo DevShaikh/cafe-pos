@@ -16,4 +16,4 @@ Use this prompt when preparing the next small development phase of the Cafe POS 
 7. Run the smallest checks that verify the actual change. Report commands and outcomes truthfully, and distinguish unverified assumptions from confirmed behavior.
 8. Stop at the phase boundary and wait for approval before beginning the next roadmap step.
 
-Current roadmap: initialization; PostgreSQL/backend foundation; product catalog; cart; checkout/saved orders; quality and polish.
+Current roadmap: initialization; SQLite/backend foundation; product catalog; cart; checkout/saved orders; quality and polish.
