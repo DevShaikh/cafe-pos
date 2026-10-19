@@ -7,7 +7,7 @@ Save as `docs/pos-ui-plan.md`. Tick the boxes as steps finish and add a line to 
 
 ## Progress (Phase 3: product catalog UI)
 
-- [ ] Step 0: Housekeeping before UI work
+- [x] Step 0: Housekeeping before UI work
 - [ ] Step 1: Fonts and client environment
 - [ ] Step 2: Data layer (product schema, API client, price helper)
 - [ ] Step 3: Server touch-ups the UI depends on
@@ -298,3 +298,4 @@ The assistant cannot open a browser or load Google Fonts in its environment. It 
 - 2026-10-19: Version 3. Single receipt with everything on it (no kitchen slip, no open orders, no payment status). Added the end-of-day count and the cashier-closed day. Phase 5 is now Receipts and Phase 6 is End of day. Order panel button is "Generate receipt". Added decisions 12 to 14.
 - 2026-10-19: Version 4. Confirmed decisions 12 to 14. Added the real customer flow (long stays, several order rounds, waiter brings the bill), a label for matching receipts, speed-first design principles, and a note about avoiding double counting.
 - 2026-10-19: Version 5. Both billing styles are supported (a receipt per round, or one combined receipt at the end). Added "Reopen as draft" to Phase 6 for replacing an earlier receipt, added decision 16, and removed the combined-bill printout idea.
+- 2026-10-19: Step 0 done.
