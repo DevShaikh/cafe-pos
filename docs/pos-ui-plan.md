@@ -8,7 +8,7 @@ Save as `docs/pos-ui-plan.md`. Tick the boxes as steps finish and add a line to 
 ## Progress (Phase 3: product catalog UI)
 
 - [x] Step 0: Housekeeping before UI work
-- [ ] Step 1: Fonts and client environment
+- [x] Step 1: Fonts and client environment
 - [ ] Step 2: Data layer (product schema, API client, price helper)
 - [ ] Step 3: Server touch-ups the UI depends on
 - [ ] Step 4: App shell and theme tokens
