@@ -6,7 +6,7 @@ class AppError extends Error {
     options?: ErrorOptions,
   ) {
     super(message, options);
-    this.name = "AppError";
+    this.name = "AppErrors";
   }
 }
 
