@@ -7,11 +7,13 @@ import { resolveDatabaseUrl } from "../lib/databaseUrl";
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const environmentSchema = z.object({
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "production", "test"])
+    .default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   // Optional: defaults to a SQLite file at server/data/cafe-pos.db
   DATABASE_URL: z.string().optional(),
-  CLIENT_ORIGIN: z.url().default("http://localhost:3000"),
+  CLIENT_ORIGIN: z.url().default("http://localhost:3001"),
 });
 
 const environment = environmentSchema.parse(process.env);
