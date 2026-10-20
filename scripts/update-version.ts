@@ -1,4 +1,4 @@
-const { execFileSync } = require("node:child_process");
+const { writeFileSync } = require("node:fs");
 const { resolve } = require("node:path");
 const { existsSync, readFileSync } = require("node:fs");
 
@@ -28,16 +28,9 @@ for (const project of projects) {
 
   const pkg = JSON.parse(readFileSync(packagePath, "utf8"));
 
-  if (pkg.version === version) {
-    console.log(`${project.name}: already at ${version}`);
-    continue;
-  }
+  pkg.version = version;
 
-  console.log(`${project.name}: updating ${pkg.version} -> ${version}`);
+  writeFileSync(packagePath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
 
-  execFileSync(npmCommand, ["version", version, "--no-git-tag-version"], {
-    cwd: project.path,
-    stdio: "inherit",
-    shell: process.platform === "win32",
-  });
+  console.log(`${project.name}: updated to ${version}`);
 }
