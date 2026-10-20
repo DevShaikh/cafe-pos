@@ -1,0 +1,36 @@
+<svg xmlns="http://w3.org" viewBox="0 0 500 500" width="100%" height="100%">
+  <!-- Definitions for gradients and shadows -->
+  <defs>
+    <!-- Rich Amber Gradient Background -->
+    <linearGradient id="amberGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF3E0" />
+      <stop offset="30%" stop-color="#FFB74D" />
+      <stop offset="70%" stop-color="#F57C00" />
+      <stop offset="100%" stop-color="#E65100" />
+    </linearGradient>
+
+    <!-- Subtle Drop Shadow for the Card -->
+    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#D84315" flood-opacity="0.35" />
+    </filter>
+
+    <!-- Metallic Text Gradient -->
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#FFF3E0" />
+    </linearGradient>
+  </defs>
+
+  <!-- Container Box with Rounded Corner (Radius) and Amber Gradient -->
+  <rect x="50" y="50" width="400" height="400" rx="64" ry="64" fill="url(#amberGradient)" filter="url(#dropShadow)" />
+
+  <!-- Bold, Clean "POS" Typography centered dynamically -->
+  <text x="50%" y="54%" 
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+        font-size="110" 
+        font-weight="900" 
+        letter-spacing="2"
+        fill="url(#textGradient)" 
+        text-anchor="middle" 
+        dominant-baseline="middle">POS</text>
+</svg>

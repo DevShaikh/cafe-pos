@@ -1,8 +1,8 @@
 import ProductsModule from "@/components/modules/products";
 
 export const metadata = {
-  title: "Products | Cafe POS",
-  description: "Products page of the Cafe POS system",
+  title: "Products",
+  description: "Products page of Cafe POS.",
 };
 
 const ProductPage = () => {
