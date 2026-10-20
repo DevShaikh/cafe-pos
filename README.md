@@ -30,7 +30,7 @@ Create `server/.env` (it is ignored by Git):
 
 ```env
 NODE_ENV=development
-PORT=4000
+PORT=3000
 CLIENT_ORIGIN=http://localhost:3001
 ```
 
@@ -52,7 +52,7 @@ npm run dev
 ```
 
 - Client: http://localhost:3001
-- API: http://localhost:4000/api
+- API: http://localhost:3000/api
 
 ## Commands
 
