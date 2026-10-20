@@ -299,3 +299,4 @@ The assistant cannot open a browser or load Google Fonts in its environment. It 
 - 2026-10-19: Version 4. Confirmed decisions 12 to 14. Added the real customer flow (long stays, several order rounds, waiter brings the bill), a label for matching receipts, speed-first design principles, and a note about avoiding double counting.
 - 2026-10-19: Version 5. Both billing styles are supported (a receipt per round, or one combined receipt at the end). Added "Reopen as draft" to Phase 6 for replacing an earlier receipt, added decision 16, and removed the combined-bill printout idea.
 - 2026-10-19: Step 0 done.
+- 2026-10-20: Step 1 done. Added calendar versioning (scripts/update-version.ts and the git pushv alias).
