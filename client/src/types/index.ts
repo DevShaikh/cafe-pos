@@ -1,9 +1,11 @@
-export type Product = {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
+import type { AxiosResponse } from "axios";
+
+export interface APIResponse<T> {
+  success: boolean;
+  message: string;
+  code?: number;
+  stack?: string;
+  data: T;
+}
+
+export type ServiceResponse<T> = Promise<AxiosResponse<APIResponse<T>>>;
