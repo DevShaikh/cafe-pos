@@ -1,4 +1,5 @@
 import { prismaClient } from "../lib/prismaClient";
+import { ERROR_CODES } from "../constants/error-codes";
 
 import AppError from "../utils/app-error";
 
@@ -14,7 +15,7 @@ export const checkDatabaseHealth = async () => {
   } catch (error) {
     throw new AppError(
       500,
-      "DATABASE_ERROR",
+      ERROR_CODES.DATABASE_CONNECTION_ERROR,
       "Failed to connect to the database",
       { cause: error },
     );

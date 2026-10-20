@@ -1,3 +1,4 @@
+import { ERROR_CODES } from "../constants/error-codes";
 import { prismaClient } from "../lib/prismaClient";
 import AppError from "../utils/app-error";
 
@@ -16,7 +17,7 @@ export const getProducts = async () => {
   } catch (error) {
     throw new AppError(
       500,
-      "DATABASE_ERROR",
+      ERROR_CODES.DATABASE_ERROR,
       "Failed to retrieve products from the database",
       { cause: error },
     );

@@ -1,12 +1,14 @@
+import type { ErrorCode } from "../constants/error-codes";
+
 class AppError extends Error {
   constructor(
     readonly statusCode: number,
-    readonly code: string,
+    readonly code: ErrorCode,
     message: string,
     options?: ErrorOptions,
   ) {
     super(message, options);
-    this.name = "AppErrors";
+    this.name = "AppError";
   }
 }
 
