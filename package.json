@@ -1,6 +1,6 @@
 {
   "name": "cafe-pos",
-  "version": "0.1.0",
+  "version": "2026.10.20",
   "private": true,
   "description": "A locally deployable cafe point-of-sale application.",
   "main": "electron/main.cjs",

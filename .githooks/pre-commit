@@ -1,0 +1,3 @@
+#!/bin/sh
+# Updates the version to today's date (YYYY.M.D) and adds it to this commit.
+node scripts/update-version.ts && git add package.json package-lock.json
