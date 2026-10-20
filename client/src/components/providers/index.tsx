@@ -1,8 +1,9 @@
-import { ThemeProvider } from "@/components/providers/theme-provider";
+import QueryProvider from "./query-provider";
+import ThemeProvider from "./theme-provider";
 
 const Providers: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <div>
+    <QueryProvider>
       <ThemeProvider
         attribute="class"
         defaultTheme="system"
@@ -11,7 +12,7 @@ const Providers: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       >
         {children}
       </ThemeProvider>
-    </div>
+    </QueryProvider>
   );
 };
 
