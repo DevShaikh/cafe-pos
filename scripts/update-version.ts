@@ -1,22 +1,40 @@
-const { execSync } = require("node:child_process");
+const { execFileSync } = require("node:child_process");
 const { resolve } = require("node:path");
+const { existsSync, readFileSync } = require("node:fs");
 
 const projectRoot = resolve(__dirname, "..");
 process.chdir(projectRoot);
 
-const pkg = require("../package.json");
 const now = new Date();
-
-// Calendar version: YYYY.M.D (for example 2026.10.20 or 2026.1.5).
-// Do not zero-pad: npm rewrites "2026.01.05" to "2026.1.5", so the check below
-// would never match and a second run on the same day would fail.
 const version = [now.getFullYear(), now.getMonth() + 1, now.getDate()].join(
   ".",
 );
 
-if (pkg.version !== version) {
-  execSync(`npm version ${version} --no-git-tag-version`, {
-    cwd: projectRoot,
+const projects = [
+  { name: "root", path: projectRoot },
+  { name: "client", path: resolve(projectRoot, "client") },
+  { name: "server", path: resolve(projectRoot, "server") },
+];
+
+for (const project of projects) {
+  const packagePath = resolve(project.path, "package.json");
+
+  if (!existsSync(packagePath)) {
+    console.warn(`Skipping ${project.name}: package.json not found.`);
+    continue;
+  }
+
+  const pkg = JSON.parse(readFileSync(packagePath, "utf8"));
+
+  if (pkg.version === version) {
+    console.log(`${project.name}: already at ${version}`);
+    continue;
+  }
+
+  console.log(`${project.name}: updating ${pkg.version} -> ${version}`);
+
+  execFileSync("npm", ["version", version, "--no-git-tag-version"], {
+    cwd: project.path,
     stdio: "inherit",
   });
 }

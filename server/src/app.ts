@@ -29,6 +29,16 @@ app.use(express.urlencoded({ extended: true })); // Parses incoming requests wit
 // Custom Logging Middleware
 app.use(requestLogger);
 
+// Welcome route for the API
+app.get("/", (_req, res) => {
+  res.json({
+    message: "Welcome to the API",
+    version: configuration.version,
+    environment: configuration.environment,
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // API Routes
 app.use("/api", apiRoutes);
 

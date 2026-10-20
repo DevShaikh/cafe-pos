@@ -19,10 +19,12 @@ const environmentSchema = z.object({
 const environment = environmentSchema.parse(process.env);
 
 const configuration = {
-  nodeEnv: environment.NODE_ENV,
   port: environment.PORT,
+  nodeEnv: environment.NODE_ENV,
   databaseUrl: resolveDatabaseUrl(environment.DATABASE_URL),
   clientOrigin: environment.CLIENT_ORIGIN,
+  version: process.env.npm_package_version || "0.0.0",
+  environment: process.env.npm_package_environment || "development",
 };
 
 export { configuration };
