@@ -171,7 +171,7 @@ Done when: `git ls-files server/data` prints nothing, `git status` is clean afte
 ### Step 1: Fonts and client environment
 
 - [ ] Replace the three Google fonts with one self-hosted sans-serif family. Remove the unused variables from the theme.
-- [ ] Add `client/.env.example` with `NEXT_PUBLIC_API_URL=http://localhost:4000/api` (adjust to your server port).
+- [ ] Add `client/.env.example` with `NEXT_PUBLIC_API_URL=http://localhost:3000/api` (adjust to your server port).
 - [ ] Create your own `client/.env.local` from it (not committed).
 
 Files: `client/src/app/layout.tsx`, `client/src/app/globals.css`, `client/package.json`, `client/.env.example`.
@@ -197,7 +197,7 @@ Done when: typecheck, lint and the new tests pass.
 - [ ] Remove the copy-pasted comment in `product.routes.ts`.
 - [ ] Product tests against a temporary SQLite file created from the migration SQL: list, ordering, availability filter, error shape.
 
-Done when: `npm test --prefix server` passes with the new tests, and `curl http://localhost:4000/api/products` returns sorted, available products.
+Done when: `npm test --prefix server` passes with the new tests, and `curl http://localhost:3000/api/products` returns sorted, available products.
 
 ### Step 4: App shell and theme tokens
 
