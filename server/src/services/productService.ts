@@ -2,14 +2,13 @@ import { prismaClient } from "../lib/prismaClient";
 import AppError from "../utils/app-error";
 
 /**
- * @description Fetches all products from the database.
- * @returns {Promise<Product[]>} A promise that resolves to an array of products.
- * @throws {AppError} Throws an AppError if there is a database error.
+ * Fetches all products from the database.
+ * @returns A promise that resolves to an array of products, each with its price formatted to two decimal places.
+ * @throws AppError when the database query fails.
  */
 export const getProducts = async () => {
   try {
     const products = await prismaClient.product.findMany();
-    // Prisma's Decimal drops trailing zeros in JSON ("120"), so send "120.00"
     return products.map((product) => ({
       ...product,
       price: product.price.toFixed(2),
