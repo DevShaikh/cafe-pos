@@ -1,11 +1,8 @@
-const { writeFileSync } = require("node:fs");
+const { existsSync, readFileSync, writeFileSync } = require("node:fs");
 const { resolve } = require("node:path");
-const { existsSync, readFileSync } = require("node:fs");
 
 const projectRoot = resolve(__dirname, "..");
 process.chdir(projectRoot);
-
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
 const now = new Date();
 const version = [now.getFullYear(), now.getMonth() + 1, now.getDate()].join(
@@ -18,6 +15,12 @@ const projects = [
   { name: "server", path: resolve(projectRoot, "server") },
 ];
 
+function updateJson(filePath: string, update: (json: any) => void) {
+  const json = JSON.parse(readFileSync(filePath, "utf8"));
+  update(json);
+  writeFileSync(filePath, `${JSON.stringify(json, null, 2)}\n`, "utf8");
+}
+
 for (const project of projects) {
   const packagePath = resolve(project.path, "package.json");
 
@@ -28,9 +31,30 @@ for (const project of projects) {
 
   const pkg = JSON.parse(readFileSync(packagePath, "utf8"));
 
-  pkg.version = version;
+  if (pkg.version !== version) {
+    pkg.version = version;
+    writeFileSync(packagePath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
+  }
 
-  writeFileSync(packagePath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
+  console.log(`${project.name}: ${version}`);
 
-  console.log(`${project.name}: updated to ${version}`);
+  const lockPath = resolve(project.path, "package-lock.json");
+
+  if (!existsSync(lockPath)) {
+    continue;
+  }
+
+  updateJson(
+    lockPath,
+    (lock: {
+      version: string;
+      packages: { [x: string]: { version: string } };
+    }) => {
+      lock.version = version;
+
+      if (lock.packages?.[""]) {
+        lock.packages[""].version = version;
+      }
+    },
+  );
 }
