@@ -24,7 +24,7 @@ const store = create<cartStore>()(
           ...prev,
           ...state,
         })),
-      clearCartStore: () => set({}),
+      clearCartStore: () => set({ cartItems: {} }),
     },
   })),
 );
