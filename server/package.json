@@ -1,6 +1,6 @@
 {
   "name": "cafe-pos-server",
-  "version": "2026.10.21",
+  "version": "2026.10.22",
   "private": true,
   "description": "Express API for the Cafe POS application.",
   "scripts": {

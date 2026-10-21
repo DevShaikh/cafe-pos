@@ -10,8 +10,7 @@ const environmentSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
-  PORT: z.coerce.number().int().min(1).max(65535).default(4000),
-  // Optional: defaults to a SQLite file at server/data/cafe-pos.db
+  PORT: z.coerce.number().int().min(1).max(65535).default(3000), // Optional: defaults to a SQLite file at server/data/cafe-pos.db
   DATABASE_URL: z.string().optional(),
   CLIENT_ORIGIN: z.url().default("http://localhost:3001"),
 });
