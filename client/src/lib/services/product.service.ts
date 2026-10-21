@@ -5,8 +5,8 @@ import { ServiceResponse } from "@/types";
 const BASE_URL = "/products";
 
 /**
- * @description Fetches the user's XP balance.
- * @returns A service response containing the user's XP balance.
+ * Fetches all products from the API.
+ * @returns A service response containing the product list.
  */
 export const getProducts = async (
   signal?: AbortSignal,
