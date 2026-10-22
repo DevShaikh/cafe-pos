@@ -10,11 +10,9 @@ import {
   BarChart3,
   Settings,
 } from "lucide-react";
-import ModeToggle from "@/components/ui/mode-toggle";
 
 const nav = [
-  { href: "/catalog", label: "Menu", icon: Utensils },
-  { href: "/cart", label: "New Receipt", icon: ShoppingCart },
+  { href: "/catalog", label: "New Receipt", icon: ShoppingCart },
   { href: "/orders", label: "Orders", icon: ReceiptText },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
