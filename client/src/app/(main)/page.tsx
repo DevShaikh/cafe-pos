@@ -1,4 +1,4 @@
-const Dashboard = () => {
+const WelcomePage = () => {
   return (
     <main className="flex min-h-[calc(100vh-48px)] items-center justify-center p-6">
       <section className="max-w-lg space-y-3 text-center">
@@ -12,4 +12,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default WelcomePage;

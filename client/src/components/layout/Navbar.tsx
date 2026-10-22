@@ -1,19 +1,24 @@
 import ModeToggle from "@/components/ui/mode-toggle";
-import Link from "next/link";
 
 const Navbar = () => {
   return (
-    <div className="flex items-center justify-between p-2 bg-card">
-      <div className="flex items-center gap-6">
-        <Link href="/">
-          <h1>Cafe POS</h1>
-        </Link>
-        <Link href="/products" className="text-sm font-medium">
-          Products
-        </Link>
+    <header className="flex h-24 shrink-0 items-center justify-between px-6">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+          Cashier Station · Live Session
+        </p>
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">
+          Ready for the next receipt
+        </h2>
       </div>
-      <ModeToggle />
-    </div>
+
+      <div className="flex items-center gap-6">
+        <div className="text-sm font-medium text-muted-foreground">
+          PKR Currency Active
+        </div>
+        <ModeToggle />
+      </div>
+    </header>
   );
 };
 
