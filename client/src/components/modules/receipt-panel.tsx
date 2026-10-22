@@ -1,20 +1,66 @@
 "use client";
 
-import { useState } from "react";
-import { Receipt, CreditCard, Minus, Plus, Trash2 } from "lucide-react";
-import { useCartActions, useCartStore } from "@/store/cart.store";
-import { useOrderActions } from "@/store/order.store";
-
-import { cn, formatPKR } from "@/lib/utils";
-import { OrderType } from "@/types";
+import { useState, useRef, useEffect } from "react";
+import {
+  Receipt,
+  CreditCard,
+  Minus,
+  Plus,
+  Trash2,
+  Loader2,
+} from "lucide-react";
+import { useReactToPrint } from "react-to-print";
+import { useCartStore, useCartActions } from "@/store/cart.store";
+import { useOrderStore, useOrderActions } from "@/store/order.store";
+import { formatPKR, cn } from "@/lib/utils";
+import PrintReceipt from "./print-receipt";
+import { Receipt as ReceiptType, OrderType } from "@/types";
 
 const ReceiptPanel = () => {
   const { cartItems } = useCartStore();
+  const { receipts } = useOrderStore();
 
   const { updateQuantity, removeItem, clearCartStore } = useCartActions();
   const { addReceipt } = useOrderActions();
 
   const [orderType, setOrderType] = useState<OrderType>("DINE_IN");
+
+  // State to hold the receipt we want to print right after generating
+  const [receiptToPrint, setReceiptToPrint] = useState<ReceiptType | null>(
+    null,
+  );
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  // Ref for the hidden print template
+  const printRef = useRef<HTMLDivElement>(null);
+
+  // Set up the print hook
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Receipt-${receiptToPrint?.receiptNumber || "New"}`,
+    onBeforePrint: async () => {
+      setIsPrinting(true);
+    },
+    // When the browser dialog closes (Print or Cancel), turn off loading
+    onAfterPrint: () => {
+      setIsPrinting(false);
+      setReceiptToPrint(null);
+    },
+    // If the print fails, turn off loading
+    onPrintError: () => {
+      setIsPrinting(false);
+      setReceiptToPrint(null);
+    },
+  });
+
+  // Automatically trigger print when a new receipt is set
+  useEffect(() => {
+    if (receiptToPrint) {
+      handlePrint();
+      // Reset after a short delay to allow the print dialog to open
+      setTimeout(() => setReceiptToPrint(null), 1000);
+    }
+  }, [receiptToPrint, handlePrint]);
 
   const cartArray = Object.values(cartItems);
 
@@ -27,6 +73,7 @@ const ReceiptPanel = () => {
   const handleGenerateReceipt = () => {
     if (cartArray.length === 0) return;
 
+    // 1. Add to Zustand store
     addReceipt({
       items: cartArray,
       subtotalPaisa,
@@ -35,8 +82,14 @@ const ReceiptPanel = () => {
       orderType,
     });
 
+    // 2. Grab the newly created receipt from the store to print it
+    // (Since Zustand updates synchronously, the new receipt is at index 0)
+    const latestReceipt = receipts[0];
+    setReceiptToPrint(latestReceipt);
+
+    // 3. Clear the cart and reset toggle
     clearCartStore();
-    setOrderType("DINE_IN"); // Reset toggle
+    setOrderType("DINE_IN");
   };
 
   return (
@@ -78,7 +131,7 @@ const ReceiptPanel = () => {
         </div>
       </div>
 
-      {/* Cart Items Area (Keep as is) */}
+      {/* Cart Items Area */}
       <div className="flex-1 overflow-y-auto p-6">
         {cartArray.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
@@ -152,7 +205,7 @@ const ReceiptPanel = () => {
         )}
       </div>
 
-      {/* Footer (Keep as is) */}
+      {/* Footer / Totals & Checkout Action */}
       <div className="border-t border-border bg-muted/30 p-6">
         <div className="mb-6 space-y-3 text-sm">
           <div className="flex justify-between text-muted-foreground">
@@ -171,13 +224,33 @@ const ReceiptPanel = () => {
 
         <button
           onClick={handleGenerateReceipt}
-          disabled={cartArray.length === 0}
+          disabled={cartArray.length === 0 || isPrinting}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-4 text-base font-semibold text-primary-foreground shadow-sm transition-transform active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
         >
-          <CreditCard size={20} />
-          Generate receipt
+          {isPrinting ? (
+            <>
+              <Loader2 size={20} className="animate-spin" />
+              Printing...
+            </>
+          ) : (
+            <>
+              <CreditCard size={20} />
+              Generate & Print receipt
+            </>
+          )}
         </button>
       </div>
+
+      {/* 
+        Hidden Print Template. 
+        It stays out of sight until receiptToPrint is set, 
+        then react-to-print grabs it and fires the printer.
+      */}
+      {receiptToPrint && (
+        <div className="hidden">
+          <PrintReceipt ref={printRef} receipt={receiptToPrint} />
+        </div>
+      )}
     </div>
   );
 };
