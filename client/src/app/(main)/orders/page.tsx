@@ -8,7 +8,7 @@ const OrdersPage = () => {
   const { receipts } = useOrderStore();
   const { markAsPaid } = useOrderActions();
 
-  const unpaidReceipts = receipts.filter((r) => r.status === "PAID");
+  const unpaidReceipts = receipts.filter((r) => r.status === "UNPAID");
   const paidReceipts = receipts.filter((r) => r.status === "PAID");
 
   return (
