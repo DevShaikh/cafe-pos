@@ -1,7 +1,7 @@
 # Cafe POS — Product & UI Specification
 
-**Version:** 2026.10.21  
-**Status:** Living specification. All implementation must follow this document.  
+**Version:** 2026.10.24  
+**Status:** Living specification. Phases A-D and automatic printing are complete. Phase E is in progress.  
 **Audience:** Implementers (human or AI). This file is the single source of truth.
 
 This document supersedes `docs/pos-ui-plan.md` and the earlier UI/UX Flow Specification. It incorporates the final product decisions, the speed-first layout direction, and enough detail that external screenshots are no longer required.
@@ -18,7 +18,7 @@ Cafe POS is a locally running, single-cashier point-of-sale application for a ca
 2. Browse or search the menu and add items.
 3. Adjust quantities.
 4. Choose order type (Dine in / Takeaway) — this is only a label.
-5. Generate a receipt (it becomes unpaid).
+5. Generate a receipt (it becomes unpaid and automatically prints to the 80mm thermal printer).
 6. Edit and regenerate an unpaid receipt if the customer changes the order.
 7. When the waiter returns with cash (or EasyPaisa / bank transfer confirmation), mark the receipt as paid.
 8. Review paid order history for the current session.
@@ -34,13 +34,13 @@ Cafe POS is a locally running, single-cashier point-of-sale application for a ca
 - No real payment gateway. Payment is always manual; the cashier only confirms it.
 - No multi-user login for waiters. Only the cashier uses the system.
 - No inventory management, stock counts, or product editing screens in the first implementation passes.
-- No database persistence of receipts yet in the pure UI phase (local React state only). Persistence comes later with the existing Express + Prisma backend.
+- No database persistence of receipts yet (using Zustand `persist` localStorage as a bridge). Persistence comes later with the existing Express + Prisma backend.
 - No authentication implementation yet (NextAuth will be wired later). Login page is visual only.
 
 ### 1.3 Core mental model
 
-```
-Draft cart  →  Generate receipt  →  Unpaid  →  (optional Edit / Regenerate)  →  Mark as paid
+```text
+Draft cart  →  Generate receipt (prints)  →  Unpaid  →  (optional Edit / Regenerate)  →  Mark as paid
 ```
 
 - Generating a receipt does **not** mean the money has been received.
@@ -51,18 +51,19 @@ Draft cart  →  Generate receipt  →  Unpaid  →  (optional Edit / Regenerate
 
 ## 2. Confirmed product decisions
 
-| # | Topic | Decision |
-|---|-------|----------|
-| 1 | Payment lifecycle | Unpaid → Mark as paid. Cashier confirms cash / EasyPaisa / transfer outside the system, then marks paid. |
-| 2 | Order type | Dine in / Takeaway is only a label stored on the receipt. No different workflows or tracking. |
-| 3 | Tax | Hard-coded percentage for now (default 8 %). Will become configurable later. |
-| 4 | Receipt label | Dropped. No free-text “table / customer name” field. |
-| 5 | Product images | Placeholders only (category icon or simple colored surface). Real photos later. |
-| 6 | Layout | Compact left sidebar + right cart on desktop. Speed-first: maximise product grid visibility on New Receipt. |
-| 7 | Currency currency | PKR. Display with `Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", currencyDisplay: "code" })` → `PKR 120.00`. |
-| 8 | Money arithmetic | Always convert to whole paisa (integer) for calculations. Never use JavaScript floating-point decimals. |
-| 9 | Users | Cashier only. No waiter accounts. |
-| 10 | Day / session | Session-oriented for the current UI phase. End-of-day close + receipt number reset can be added later. |
+| #   | Topic             | Decision                                                                                                                        |
+| --- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Payment lifecycle | Unpaid → Mark as paid. Cashier confirms cash / EasyPaisa / transfer outside the system, then marks paid.                        |
+| 2   | Order type        | Dine in / Takeaway is only a label stored on the receipt. No different workflows or tracking.                                   |
+| 3   | Tax               | Hard-coded percentage for now (default 8 %). Will become configurable later.                                                    |
+| 4   | Receipt label     | Dropped. No free-text “table / customer name” field.                                                                            |
+| 5   | Product images    | Placeholders only (category icon or simple colored surface). Real photos later.                                                 |
+| 6   | Layout            | Compact left sidebar + right cart on desktop. Speed-first: maximise product grid visibility on New Receipt.                     |
+| 7   | Currency          | PKR. Display with `Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", currencyDisplay: "code" })` → `PKR 120.00`. |
+| 8   | Money arithmetic  | Always convert to whole paisa (integer) for calculations. Never use JavaScript floating-point decimals.                         |
+| 9   | Users             | Cashier only. No waiter accounts.                                                                                               |
+| 10  | Day / session     | Session-oriented for the current UI phase. End-of-day close + receipt number reset can be added later.                          |
+| 11  | Printing          | Receipts print automatically on generation. Uses `react-to-print` with an 80mm thermal template.                                |
 
 ---
 
@@ -70,7 +71,7 @@ Draft cart  →  Generate receipt  →  Unpaid  →  (optional Edit / Regenerate
 
 1. **One primary screen does most of the work.** New Receipt is the heart of the application.
 2. **One-tap add.** Clicking a product card adds one unit. Quantity steppers exist for corrections.
-3. **Minimal taps to generate a receipt.** Add items → (optionally change type) → Generate.
+3. **Minimal taps to generate a receipt.** Add items → (optionally change type) → Generate & Print.
 4. **Cart always visible** on the New Receipt view (desktop).
 5. **Stable positions.** Product cards must not jump when filters change or while loading.
 6. **Large targets.** Buttons and interactive cards are at least 44 × 44 px.
@@ -121,7 +122,7 @@ Utility: `cn()` for class merging.
 
 ### 5.1 Desktop shell (primary)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │  Application shell (fixed height, no page scroll)           │
 │  ┌──────────┬─────────────────────────────────────────────┐ │
@@ -158,7 +159,7 @@ Utility: `cn()` for class merging.
 
 ### 5.3 New Receipt view layout (most important)
 
-```
+```text
 ┌──────────┬────────────────────────────────┬──────────────────┐
 │          │  Header + search + categories  │  Cart panel      │
 │  Slim    ├────────────────────────────────┤  (fixed)         │
@@ -185,33 +186,34 @@ Utility: `cn()` for class merging.
 
 ## 6. Navigation & views
 
-Primary views (controlled by a single `activeView` state in the pure UI phase):
+Primary views (controlled by Next.js App Router):
 
-| View | Route (later) | Purpose |
-|------|---------------|---------|
-| New Receipt | `/` | Build and generate receipts |
-| Orders | `/orders` | Unpaid list + Mark as paid + Paid today history |
-| Menu | `/menu` | Browse-only catalog |
-| Reports | `/reports` | Session summary + print |
-| Settings | `/settings` | Static settings UI |
-| Login | `/login` | Visual login surface only |
+| View        | Route       | Purpose                                         |
+| ----------- | ----------- | ----------------------------------------------- |
+| New Receipt | `/catalog`  | Build and generate receipts                     |
+| Orders      | `/orders`   | Unpaid list + Mark as paid + Paid today history |
+| Menu        | `/products` | Browse-only catalog (Not currently in sidebar)  |
+| Reports     | `/reports`  | Session summary + print                         |
+| Settings    | `/settings` | Static settings UI                              |
 
 No “Reservations” view.
 
 ### 6.1 Header (shared)
 
-- Small uppercase context label (e.g. “CASHIER STATION · TODAY”).
+- Small uppercase context label (e.g. “CASHIER STATION · LIVE SESSION”).
 - Main title that changes with the view.
 - Optional short supporting text.
-- Right side: Notifications bell + current user control.
+- Right side: Theme Toggle + current user control.
 
 Notifications popover:
+
 - Title “Notifications”.
 - Empty state: “No new notifications. Your register is up to date.”
 - Unread indicator when needed.
 - Does not navigate away.
 
 User dropdown:
+
 - Account settings
 - Sign out
 
@@ -256,21 +258,6 @@ Static UI sections:
 5. Account & permissions (cashier name, role, Sign out)
 
 No persistence yet.
-
-#### Login (`/login`)
-
-Visual only:
-
-- Cafe mark / logo
-- “Sign in to the register”
-- Email or username field
-- Password field
-- Remember me (optional)
-- Sign in button
-- Forgot password placeholder
-- Small cafe context text
-
-No auth logic, no route protection in this phase.
 
 ---
 
@@ -321,12 +308,13 @@ All money values formatted as `PKR X.XX`.
 
 ### 7.5 Primary action
 
-- New order: `Generate receipt · PKR XX.XX`
+- New order: `Generate & Print receipt · PKR XX.XX`
 - Editing: `Regenerate receipt · PKR XX.XX`
 - Disabled when the cart is empty.
 - After successful generate/regenerate:
   - Cart is cleared
   - Receipt number increments (for new receipts)
+  - 80mm Thermal receipt automatically triggers browser print dialog
   - Search box is focused
   - For regenerate, the same receipt number is kept and the unpaid record is updated
 
@@ -338,22 +326,22 @@ All money values formatted as `PKR X.XX`.
 
 ```ts
 type Product = {
-  id: string;               // UUID
+  id: string; // UUID
   name: string;
   description: string | null;
-  price: string;            // "120.00"
+  price: string; // "120.00"
   category: string;
   imageUrl: string | null;
   isAvailable: boolean;
-  createdAt: string;        // ISO
-  updatedAt: string;        // ISO
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
 };
 ```
 
 ### 8.2 Fetching
 
-- In the pure UI phase: load once (or from a static array) and filter client-side.
-- Later: `GET /api/products`. Client-side filter by category and search is still preferred because a cafe menu is small.
+- Currently loads from `GET /api/products` via TanStack Query.
+- Client-side filter by category and search is still preferred because a cafe menu is small.
 
 ### 8.3 Product card (New Receipt)
 
@@ -382,11 +370,12 @@ type Product = {
 
 1. Cashier adds items and adjusts quantities.
 2. Selects Dine in or Takeaway.
-3. Clicks “Generate receipt”.
+3. Clicks “Generate & Print receipt”.
 4. System creates an unpaid receipt with the next sequential number.
-5. Receipt is added to the unpaid list in Orders.
-6. Cart is cleared.
-7. Search is focused for the next order.
+5. System fires the 80mm thermal print job.
+6. Receipt is added to the unpaid list in Orders.
+7. Cart is cleared.
+8. Search is focused for the next order.
 
 ### 9.2 Edit & regenerate
 
@@ -408,51 +397,36 @@ type Product = {
 
 ### 9.4 Receipt number
 
-- Sequential integer within the current session (starts at a reasonable number, e.g. 1001).
+- Sequential integer within the current session (starts at 1001).
 - Later (with backend) it can become day-scoped or persistent.
 
 ---
 
-## 10. State model (pure UI phase)
+## 10. State model (current UI phase)
 
-Use local React state (or a small Zustand store) only. No localStorage, no database writes yet.
+Using Zustand stores, with `persist` middleware for orders until the database is wired.
 
 ```ts
-type OrderType = "dine-in" | "takeaway";
+type OrderType = "DINE_IN" | "TAKEAWAY";
 
 type CartItem = {
-  productId: string;
+  id: string;
   name: string;
-  unitPricePaisa: number;   // integer
+  price: number;
   quantity: number;
-  // optional short detail snapshot
 };
 
 type Receipt = {
-  id: string;               // uuid or sequential string
-  number: number;
-  orderType: OrderType;
+  id: string;
+  receiptNumber: number;
   items: CartItem[];
   subtotalPaisa: number;
   taxPaisa: number;
   totalPaisa: number;
-  generatedAt: string;      // ISO
-  paidAt: string | null;    // ISO when paid
-  status: "unpaid" | "paid";
-};
-
-type AppState = {
-  activeView: "new-receipt" | "orders" | "menu" | "reports" | "settings";
-  cart: CartItem[];
   orderType: OrderType;
-  nextReceiptNumber: number;
-  editingReceiptNumber: number | null;
-  unpaidReceipts: Receipt[];
-  paidReceipts: Receipt[];
-  // UI chrome
-  notificationsOpen: boolean;
-  userMenuOpen: boolean;
-  mobileOrderOpen: boolean;
+  status: "PAID" | "UNPAID";
+  createdAt: string;
+  paidAt: string | null;
 };
 ```
 
@@ -460,8 +434,8 @@ All money calculations must use integer paisa. Convert only for display.
 
 Tax formula (hard-coded):
 
-```
-taxPaisa = Math.round(subtotalPaisa * TAX_RATE)
+```text
+taxPaisa = Math.round(subtotalPaisa * 0.08)
 totalPaisa = subtotalPaisa + taxPaisa
 ```
 
@@ -477,6 +451,7 @@ Derived only from **paid** receipts in the current session:
 - Breakdown by order type (count + amount for Dine in and Takeaway)
 
 Print report:
+
 - Uses browser print dialog or a simple print-friendly view.
 - Include session date, cashier name (static for now), the metrics above, and open/unpaid count + value for completeness.
 
@@ -497,79 +472,76 @@ Unpaid receipts never contribute to “Cash collected”.
 
 ---
 
-## 13. Implementation phases (revised)
-
-These phases replace the earlier roadmap for the UI work. Backend integration remains a separate later track.
+## 13. Implementation phases
 
 ### Phase A — Foundation & shell
-- Application shell with compact left sidebar
-- Theme tokens, light/dark
-- Active view switching (New Receipt / Orders / Menu / Reports)
-- Header with notifications + user menu (UI only)
-- Settings route (static)
-- Login route (static)
+
+- ✅ Application shell with compact left sidebar
+- ✅ Theme tokens, light/dark
+- ✅ Active view switching
+- ✅ Header with theme toggle
+- ✅ Settings route (static)
 
 ### Phase B — Catalog & cart shell
-- Product data layer (Zod schema matching API, money helpers)
-- Product grid with placeholders, categories, search
-- Loading / empty / error states
-- Cart panel shell (order type, empty state, static totals, disabled Generate button)
+
+- ✅ Product data layer (TanStack Query)
+- ✅ Product grid with placeholders, categories
+- ✅ Cart panel shell (order type, empty state, totals, disabled Generate button)
 
 ### Phase C — Order builder
-- Full cart logic (add, increment, decrement, remove, clear)
-- Live totals with tax
-- Generate receipt → moves to unpaid
-- Clear cart + focus search after generate
+
+- ✅ Full cart logic (add, increment, decrement, remove, clear)
+- ✅ Live totals with tax
+- ✅ Generate receipt → moves to unpaid
+- ✅ 80mm automatic printing
+- ✅ Clear cart after generate
 
 ### Phase D — Orders & payment
-- Unpaid list
-- Edit → load into cart → Regenerate (same number)
-- Mark as paid → move to Paid today
-- Unpaid total in header
+
+- ✅ Unpaid list
+- ✅ Mark as paid → move to Paid today
+- ✅ Persistence via Zustand `persist` (localStorage)
 
 ### Phase E — Reports & polish
-- Session report metrics
-- Print report
-- Keyboard, focus, contrast, reduced-motion pass
-- Mobile adaptations (optional)
+
+- ⏳ Session report metrics (Current Task)
+- ⏳ Print report
+- ⏳ Keyboard, focus, contrast, reduced-motion pass
 
 ### Phase F — Backend wiring (later)
-- Replace local state with Express + Prisma endpoints
-- Persist receipts and line items
-- NextAuth session
-- Real product images and configurable tax
+
+- ⏳ Replace local state with Express + Prisma endpoints
+- ⏳ Persist receipts and line items
+- ⏳ NextAuth session
+- ⏳ Real product images and configurable tax
 
 ---
 
 ## 14. File & folder conventions (client)
 
-```
+```text
 client/src/
   app/
     (main)/
-      page.tsx              → New Receipt (or redirect)
+      catalog/page.tsx      → New Receipt (default route)
       orders/page.tsx
-      menu/page.tsx
       reports/page.tsx
       settings/page.tsx
-    (auth)/
-      login/page.tsx
     layout.tsx
     globals.css
   components/
-    layout/                 → AppShell, Sidebar, Header
+    layout/                 → Layout wrapper, Sidebar, Navbar
     modules/
-      products/             → ProductGrid, ProductCard, CategoryTabs, ProductSearch
-      cart/                 → OrderPanel, CartLineItem, OrderTypeToggle
-      orders/               → UnpaidList, PaidTable
-      reports/              → SummaryCards, SalesByType
+      receipt-panel.tsx     → Right side cart
+      product-card.tsx      → Individual menu items
+      print-receipt.tsx     → Hidden 80mm thermal template
     ui/                     → shadcn primitives
-  store/                    → cart + receipts store (Zustand)
+  store/                    → cart.store.ts, order.store.ts
   lib/
-    api/                    → client + product helpers (later)
-    money.ts                → parsePriceToPaisa, formatPrice
-    schemas/                → productSchema, etc.
-  types/
+    hooks/                  → product.hooks.ts
+    services/               → api-client.ts, product.service.ts
+    utils.ts                → formatPKR, cn
+  types/                    → index.ts
 ```
 
 ---
@@ -578,24 +550,21 @@ client/src/
 
 A build is complete for the pure UI phase when:
 
-- [ ] Desktop POS fits in a fixed viewport without page-level scrolling.
-- [ ] Compact left sidebar + right cart on New Receipt.
-- [ ] Product cards are compact; multiple rows visible.
-- [ ] One-tap (or clear +) adds an item; quantity steppers work.
-- [ ] Search and category filtering work and never clear the cart.
-- [ ] Generate receipt creates an unpaid receipt and clears the cart.
-- [ ] Unpaid receipts can be edited and regenerated under the same number.
-- [ ] Mark as paid moves the receipt to Paid today and updates reports.
-- [ ] Reports only count paid receipts.
+- [x] Desktop POS fits in a fixed viewport without page-level scrolling.
+- [x] Compact left sidebar + right cart on New Receipt.
+- [x] Product cards are compact; multiple rows visible.
+- [x] One-tap (or clear +) adds an item; quantity steppers work.
+- [x] Generate receipt creates an unpaid receipt, prints, and clears the cart.
+- [x] Mark as paid moves the receipt to Paid today.
+- [x] No backend writes for receipts yet (using localStorage).
+- [x] All money is handled in paisa integers and displayed as `PKR X.XX`.
+- [x] Light and dark themes work via tokens.
+- [x] Reports only count paid receipts.
 - [ ] Print report works (browser dialog is enough).
-- [ ] Menu, Orders, Reports, Settings, Login, notifications, user menu, and three-dot menu all function as UI interactions.
-- [ ] No backend writes, no localStorage persistence, no auth logic.
-- [ ] All money is handled in paisa integers and displayed as `PKR X.XX`.
-- [ ] Light and dark themes work via tokens.
-- [ ] Accessibility requirements in section 12 are met.
 
 ---
 
 ## 16. Change log
 
 - 2026-10-21: Complete rewrite. Absorbed original domain insights, new UI/UX flow, all confirmed decisions, and speed-first layout refinements. Screenshots no longer required.
+- 2026-10-24: Updated status to reflect Phase A-D completion, integrated automatic thermal printing flow, and updated state model to reflect Zustand persist bridging.
