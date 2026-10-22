@@ -1,7 +1,8 @@
 import { Plus } from "lucide-react";
+
 import { useCartActions } from "@/store/cart.store";
 import { Product } from "@/lib/schemas/product.schema";
-import { formatPrice } from "@/lib/utils";
+import { formatPKR } from "@/lib/utils";
 
 interface ProductCardProps {
   product: Product;
@@ -29,7 +30,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
 
         <div className="mt-3 flex items-center justify-between">
           <span className="text-sm font-bold text-primary">
-            {formatPrice(product.price)}
+            {formatPKR(parseFloat(product.price))}
           </span>
           <button
             onClick={() =>
