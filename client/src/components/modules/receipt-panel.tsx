@@ -1,40 +1,42 @@
 "use client";
 
+import { useState } from "react";
 import { Receipt, CreditCard, Minus, Plus, Trash2 } from "lucide-react";
+import { useCartActions, useCartStore } from "@/store/cart.store";
+import { useOrderActions } from "@/store/order.store";
 
-import { useCartStore, useCartActions } from "@/store/cart.store";
-
-import { formatPKR } from "@/lib/utils";
+import { cn, formatPKR } from "@/lib/utils";
+import { OrderType } from "@/types";
 
 const ReceiptPanel = () => {
   const { cartItems } = useCartStore();
+
   const { updateQuantity, removeItem, clearCartStore } = useCartActions();
+  const { addReceipt } = useOrderActions();
+
+  const [orderType, setOrderType] = useState<OrderType>("DINE_IN");
 
   const cartArray = Object.values(cartItems);
 
-  // --- PAISA MATH (Avoiding Floating Point Errors) ---
   const subtotalPaisa = cartArray.reduce((sum, item) => {
-    const itemPricePaisa = Math.round(item.price * 100);
-    return sum + itemPricePaisa * item.quantity;
+    return sum + Math.round(item.price * 100) * item.quantity;
   }, 0);
-
-  const taxPaisa = Math.round(subtotalPaisa * 0.08); // 8% tax
+  const taxPaisa = Math.round(subtotalPaisa * 0.08);
   const totalPaisa = subtotalPaisa + taxPaisa;
 
-  // --- HANDLERS ---
   const handleGenerateReceipt = () => {
     if (cartArray.length === 0) return;
 
-    // In Phase F, this will POST to the server
-    console.log("Generating Receipt:", {
+    addReceipt({
       items: cartArray,
       subtotalPaisa,
       taxPaisa,
       totalPaisa,
+      orderType,
     });
 
-    alert(`Receipt Generated! Total: ${formatPKR(totalPaisa)}`);
     clearCartStore();
+    setOrderType("DINE_IN"); // Reset toggle
   };
 
   return (
@@ -51,19 +53,34 @@ const ReceiptPanel = () => {
         </div>
 
         <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
-          <button className="flex-1 rounded-lg bg-background px-3 py-2 text-sm font-semibold text-foreground shadow-sm">
+          <button
+            onClick={() => setOrderType("DINE_IN")}
+            className={cn(
+              "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all",
+              orderType === "DINE_IN"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
             Dine in
           </button>
-          <button className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+          <button
+            onClick={() => setOrderType("TAKEAWAY")}
+            className={cn(
+              "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all",
+              orderType === "TAKEAWAY"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
             Takeaway
           </button>
         </div>
       </div>
 
-      {/* Cart Items Area */}
+      {/* Cart Items Area (Keep as is) */}
       <div className="flex-1 overflow-y-auto p-6">
         {cartArray.length === 0 ? (
-          /* Empty State */
           <div className="flex h-full flex-col items-center justify-center text-center">
             <div className="mb-4 rounded-full bg-muted p-4">
               <Receipt className="h-8 w-8 text-muted-foreground" />
@@ -74,18 +91,15 @@ const ReceiptPanel = () => {
             </p>
           </div>
         ) : (
-          /* Dynamic Line Items */
           <div className="space-y-4">
             {cartArray.map((item) => {
               const itemPricePaisa = Math.round(item.price * 100);
               const lineTotalPaisa = itemPricePaisa * item.quantity;
-
               return (
                 <div key={item.id} className="flex gap-3">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                     <Receipt size={20} />
                   </div>
-
                   <div className="flex flex-1 flex-col justify-between">
                     <div className="flex items-start justify-between">
                       <div>
@@ -100,8 +114,6 @@ const ReceiptPanel = () => {
                         {formatPKR(lineTotalPaisa)}
                       </p>
                     </div>
-
-                    {/* Quantity Controls */}
                     <div className="mt-2 flex items-center justify-between">
                       <div className="flex items-center gap-1 rounded-lg border border-border p-1">
                         <button
@@ -140,7 +152,7 @@ const ReceiptPanel = () => {
         )}
       </div>
 
-      {/* Footer / Totals & Checkout Action */}
+      {/* Footer (Keep as is) */}
       <div className="border-t border-border bg-muted/30 p-6">
         <div className="mb-6 space-y-3 text-sm">
           <div className="flex justify-between text-muted-foreground">

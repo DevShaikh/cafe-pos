@@ -1,5 +1,9 @@
+import { CartItem } from "@/store/cart.store";
 import type { AxiosResponse } from "axios";
 
+//=======================================================
+//  API Response Types
+//=======================================================
 export interface APIResponse<T> {
   success: boolean;
   message: string;
@@ -9,3 +13,26 @@ export interface APIResponse<T> {
 }
 
 export type ServiceResponse<T> = Promise<AxiosResponse<APIResponse<T>>>;
+
+//=======================================================
+//  Order Types
+//=======================================================
+export type OrderType = "DINE_IN" | "TAKEAWAY";
+
+export type Receipt = {
+  id: string;
+  receiptNumber: number;
+  items: CartItem[];
+  subtotalPaisa: number;
+  taxPaisa: number;
+  totalPaisa: number;
+  orderType: OrderType;
+  status: "PAID" | "UNPAID";
+  createdAt: string; // ISO date string
+  paidAt: string | null; // ISO date string or null
+};
+
+export type OrderStates = {
+  receipts: Receipt[];
+  nextReceiptNumber: number;
+};
