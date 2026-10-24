@@ -1,47 +1,33 @@
 # Cafe POS
 
-A locally running cafe point-of-sale app for the counter. Built as a learning and portfolio project.
+A locally run point-of-sale application for a single cafe counter. This is a learning and portfolio project: the current client supports product browsing, a local receipt cart, receipt creation, and manual payment tracking. It is not yet a complete production POS.
 
-**Status:** Phases A–D are complete. Receipt generation, automatic thermal printing, and order management (Unpaid → Paid) are fully functional. Phase E is in progress – the Reports page is the remaining UI feature.
+The detailed behavior and remaining requirements are in [`docs/pos-spec.md`](docs/pos-spec.md). Architectural and business decisions are summarized in [`docs/decisions.md`](docs/decisions.md). Those documents describe current implementation separately from planned behavior.
 
----
+## Current capabilities and limits
 
-## What it does
+- The catalog requests products from the Express API and renders product cards.
+- The search field and category/filter controls are visual only; they do not filter products.
+- A product can be added to the in-memory cart. Quantities can be changed and items removed.
+- Checkout calculates an 8% tax, creates an unpaid receipt in Zustand, increments its receipt number, and clears the cart.
+- Orders are stored in browser `localStorage`; they are not written to the backend database. Marking an unpaid receipt as paid is a manual status update.
+- Receipt generation attempts to invoke the browser print flow using `react-to-print` and an 80mm template. This is not silent printer integration; it requires browser/desktop print support. The current receipt selection uses a potentially stale React render value, so verify this flow before relying on printed receipts.
+- Reports and Settings are placeholders. Login is a visual placeholder and does not authenticate users. Edit/regenerate of an unpaid receipt is not implemented.
+- Product prices are returned by the API as decimal strings. Current cart calculations convert those values to JavaScript numbers and back to integer paisa; integer-only money handling is a documented target that the current UI has not fully reached.
 
-The cashier uses the system to:
+## Stack and runtime
 
-1. Build a receipt from the menu (search + categories).
-2. Choose order type (Dine in / Takeaway — label only).
-3. Generate a receipt → it becomes **unpaid**, is automatically sent to the 80mm thermal printer, and the cart resets instantly.
-4. Edit and regenerate an unpaid receipt if the order changes.
-5. When the waiter returns with cash (or EasyPaisa / transfer confirmation), **mark the receipt as paid**.
-6. Review paid history and generate a session report (reports page coming soon).
+| Area | Technology and role |
+| --- | --- |
+| Client | Next.js App Router, React, TypeScript, Tailwind CSS v4, shadcn/Radix UI |
+| Client data | TanStack Query fetches server products; Zustand stores the cart and receipts |
+| API | Node.js, Express 5, TypeScript, Zod, REST JSON |
+| Database | SQLite via Prisma 7 and `better-sqlite3`; currently stores products only |
+| Desktop shell | Electron loads the local Next.js client |
 
-Payment is always manual. The app only records that the cashier confirmed the money was received.
+## Setup
 
-Full product rules, layout, and acceptance criteria live in [`docs/pos-spec.md`](docs/pos-spec.md).  
-Quick locked decisions: [`docs/decisions.md`](docs/decisions.md).
-
----
-
-## Tech stack
-
-| Layer                | Technologies                                                          |
-| -------------------- | --------------------------------------------------------------------- |
-| **Client**           | Next.js (App Router), React, TypeScript, Tailwind CSS (v4), shadcn/ui |
-| **State Management** | Zustand (client cart & orders), TanStack Query (server products)      |
-| **Printing**         | `react-to-print` (80mm thermal receipt template)                      |
-| **Server**           | Node.js, Express, TypeScript, Zod                                     |
-| **Database**         | SQLite (single local file) with Prisma 7                              |
-| **Desktop**          | Electron (loads the Next.js client)                                   |
-
----
-
-## Getting started
-
-You need **Node.js 20.9+** and npm. No separate database server is required.
-
-### 1. Clone and install
+Requirements: Node.js 20.9+ and npm. No separate database service is needed.
 
 ```bash
 git clone https://github.com/DevShaikh/cafe-pos.git
@@ -51,135 +37,112 @@ npm install --prefix client
 npm install --prefix server
 ```
 
-### 2. Configure the server
-
-Create `server/.env` (it is ignored by Git):
+Create `server/.env` if you need to override defaults (the file is ignored by Git):
 
 ```env
 NODE_ENV=development
 PORT=3000
 CLIENT_ORIGIN=http://localhost:3001
+# Optional; defaults to file:./data/cafe-pos.db, relative to server/
+# DATABASE_URL=file:./data/cafe-pos.db
 ```
 
-`CLIENT_ORIGIN` must match the address the client runs on.  
-The database is created at `server/data/cafe-pos.db` by default. To use another location:
-
-```env
-DATABASE_URL=file:./path/to/cafe-pos.db
-```
-
-### 3. Set up the database
+Initialize the local database and demo products:
 
 ```bash
 npm run db:migrate --prefix server
 npm run db:seed --prefix server
 ```
 
-The seed adds 20 demo products and is safe to run again.
-
-### 4. Run the app
+The seed command adds 20 demo products and is designed to be safe to rerun. Start the web app and API together:
 
 ```bash
 npm run dev
 ```
 
-- Client: http://localhost:3001
-- API: http://localhost:3000/api
+- Client: <http://localhost:3001>
+- API welcome: <http://localhost:3000/>
+- Health: <http://localhost:3000/api/health>
+- Products: <http://localhost:3000/api/products>
 
-Optional desktop window (start `npm run dev` first):
+The Electron development window can be started separately after the client is running:
 
 ```bash
 npm run desktop
 ```
 
----
+Electron currently loads the local client URL; this is a development shell, not a packaged offline deployment.
+
+## Routes and request flow
+
+The root client route redirects to `/catalog`. The main shell has `/catalog`, `/orders`, `/reports`, and `/settings`; `/login` exists as a static auth placeholder. Sidebar links navigate to the four main routes.
+
+For products, the catalog calls `useProducts` (TanStack Query), which calls `product.service.ts`, then the Axios `apiClient` configured by `NEXT_PUBLIC_API_URL`. The Express API mounts `/api/products`; the route calls a controller, which calls the Prisma-backed product service. API product prices are serialized as decimal strings. The response is cached by TanStack Query in the client.
+
+For checkout, product-card actions update the Zustand cart. `ReceiptPanel` derives subtotal, 8% tax, and total; `order.store.ts` creates an unpaid receipt with a UUID, timestamp, and sequential number starting at 1001. The order store persists receipts and the next number under the `cafe-pos-orders` localStorage key. The cart is in memory only. The Orders page selects unpaid and paid receipts from the same store; `markAsPaid` adds a paid timestamp. Neither cart nor receipts currently use server persistence.
 
 ## Commands
 
-| Command                                     | What it does                        |
-| ------------------------------------------- | ----------------------------------- |
-| `npm run dev`                               | Start client and server together    |
-| `npm run dev:client` / `npm run dev:server` | Start one of them                   |
-| `npm run lint`                              | Lint client and server              |
-| `npm run typecheck`                         | Type-check client and server        |
-| `npm run build`                             | Build client and server             |
-| `npm test`                                  | Run server tests                    |
-| `npm run db:migrate --prefix server`        | Create or apply database migrations |
-| `npm run db:seed --prefix server`           | Add the demo products               |
-| `npm run db:status --prefix server`         | Show migration status               |
-| `npm run desktop`                           | Open the app in an Electron window  |
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Run client and server concurrently |
+| `npm run dev:client` / `npm run dev:server` | Run one development process |
+| `npm run lint` | Lint client and server |
+| `npm run typecheck` | Type-check client and server |
+| `npm run build` | Build client and server |
+| `npm test` | Run server tests |
+| `npm run verify` | Run lint, typecheck, and tests |
+| `npm run db:migrate --prefix server` | Create/apply development migrations |
+| `npm run db:migrate:deploy --prefix server` | Apply existing migrations for deployment |
+| `npm run db:seed --prefix server` | Seed demo products |
+| `npm run db:status --prefix server` | Show migration status |
+| `npm run desktop` | Open Electron shell |
 
----
-
-## API (current)
-
-| Method | Path            | Description             |
-| ------ | --------------- | ----------------------- |
-| GET    | `/api`          | Welcome message         |
-| GET    | `/api/health`   | API and database status |
-| GET    | `/api/products` | List products           |
-
-Prices are returned as strings with two decimals (e.g. `"120.00"`). The client formats them as `PKR 120.00`.
-
----
-
-## Project layout
+## Repository map
 
 ```text
-client/          Next.js app
-  src/
-    app/         App Router pages: (main)/catalog, (main)/orders, (main)/reports, (main)/settings
-    components/  layout/ (sidebar, navbar), modules/ (product-card, receipt-panel, print-receipt), ui/ (shadcn)
-    lib/         hooks/ (product.hooks), services/ (api-client, product.service), utils.ts
-    store/       cart.store.ts, order.store.ts
-    types/       index.ts (shared types)
-electron/        Electron window for the desktop version
-server/
-  prisma/        Schema and migrations
-  seeds/         Demo data
-  src/           Express app: routes, controllers, services, schemas
-docs/
-  pos-spec.md    Full product & UI specification (source of truth)
-  decisions.md   Locked decisions (quick reference)
+client/src/app/                 Next App Router pages and route groups
+client/src/components/layout/   Sidebar, header, and application shell
+client/src/components/modules/  Product cards and receipt/print UI
+client/src/components/providers/Theme and TanStack Query providers
+client/src/components/ui/       Shared UI primitives and theme toggle
+client/src/lib/hooks/           Client query hooks
+client/src/lib/services/        Axios client and API service functions
+client/src/lib/schemas/         Zod client schemas and inferred types
+client/src/store/               Zustand cart and order stores
+client/src/types/               API response and receipt types
+server/src/routes/              Express route mounting
+server/src/controllers/         HTTP request/response adapters
+server/src/services/            Product and health business/data operations
+server/src/schemas/             Zod request schemas
+server/src/middleware/          Logging, not-found, and error handling
+server/prisma/schema/           Prisma generator/datasource and model files
+server/prisma/migrations/       SQLite migration history
+server/seeds/                   Demo product seed
+electron/main.cjs               Desktop window entry point
+docs/                           Product specification and decisions
 ```
 
----
+## Roadmap snapshot
 
-## Roadmap
+See the specification for feature-level status. The shipped implementation is a foundation and first POS workflow, with several partial phases:
 
-Aligned with `docs/pos-spec.md`:
-
-| Phase | Focus                                                                      | Status                             |
-| ----- | -------------------------------------------------------------------------- | ---------------------------------- |
-| **A** | Application shell, compact sidebar, theme, view switching                  | ✅ Done                            |
-| **B** | Product catalog + cart panel shell                                         | ✅ Done                            |
-| **C** | Order builder + Generate receipt (unpaid)                                  | ✅ Done                            |
-| **D** | Orders view: Mark as paid, paid history                                    | ✅ Done                            |
-| **E** | Session reports, print, accessibility & polish                             | 🔄 Print done, **Reports pending** |
-| **F** | Backend wiring (persist receipts, NextAuth, real images, configurable tax) | ⏳ Pending                         |
-
-Backend foundation (SQLite, product API) is already in place.
-
----
+| Area | Current status |
+| --- | --- |
+| Backend foundation and product API | Implemented: health and product-list endpoints, SQLite product model, seed |
+| App shell and theme | Partial: shell, navigation, theme toggle; static user/session details |
+| Product catalog | Partial: remote list and cards; search/category/filter controls are not wired |
+| Cart and receipt creation | Partial: local cart, quantities, tax, unpaid receipt creation; money conversion uses JS numbers |
+| Orders and payments | Partial: persisted local order list and manual mark-paid; edit/regenerate is absent |
+| Printing | Integrated browser print attempt; printer/device workflow and latest receipt selection need validation |
+| Reports, settings, authentication, server-side orders | Not implemented beyond placeholders/foundation |
 
 ## Troubleshooting
 
-- **"Could not locate the bindings file" (better-sqlite3)**  
-  Your npm blocked the driver's install script. Run:
-
-  ```bash
-  npm rebuild better-sqlite3 --prefix server
-  ```
-
-  If it is still blocked, run `npm install-scripts approve better-sqlite3` inside `server/` and rebuild.
-
-- **Database missing or empty**  
-  Run the two commands in step 3 of Getting started.
-
-- **Keep private**  
-  `.env` files and the `server/data/` folder are never committed.
-
----
+- If `better-sqlite3` reports missing bindings, rebuild it in the server package: `npm rebuild better-sqlite3 --prefix server`.
+- If the database has no products, run the migration and seed commands above.
+- Ensure `NEXT_PUBLIC_API_URL` points to the API origin (for local development, `http://localhost:3000/api`) and `CLIENT_ORIGIN` matches the client origin.
+- Keep `.env` files and `server/data/` local; they are not intended for source control.
 
 ## License
 

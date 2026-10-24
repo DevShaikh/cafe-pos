@@ -1,73 +1,65 @@
-# Cafe POS project instructions
+# Cafe POS repository instructions
 
-## Purpose and current scope
+## Purpose and sources of truth
 
-Build a simple, reliable, locally deployable cafe point-of-sale application in small, verifiable phases. Work only on the phase the user has approved; do not jump ahead.
+Build a locally deployable, single-cashier cafe point-of-sale application in small, reviewable steps. Respect the user's requested scope and ask before taking a consequential product or architecture decision that is not already documented.
 
-**Source of truth:** [`docs/pos-spec.md`](../docs/pos-spec.md)  
-**Locked decisions:** [`docs/decisions.md`](../docs/decisions.md)
+- [`docs/pos-spec.md`](../docs/pos-spec.md): current implementation, desired workflow, roadmap, and known gaps.
+- [`docs/decisions.md`](../docs/decisions.md): domain and architecture decisions plus implementation differences.
+- [`README.md`](../README.md): setup, commands, endpoints, and repository map.
 
-### Roadmap (from pos-spec.md)
+Do not treat a planned feature in the spec as implemented. Current progress is partial across the UI workflow; see the spec's roadmap table before describing status.
 
-| Phase              | Focus                                                                                | Status  |
-| ------------------ | ------------------------------------------------------------------------------------ | ------- |
-| Backend foundation | SQLite, Express, `GET /api/products`                                                 | Done    |
-| **A**              | Application shell, compact sidebar, theme, view switching, Settings & Login (static) | Next    |
-| **B**              | Product catalog (placeholders, categories, search) + cart panel shell                | Pending |
-| **C**              | Order builder (add/qty/totals/tax) + Generate receipt → unpaid                       | Pending |
-| **D**              | Orders: edit/regenerate, Mark as paid, paid history                                  | Pending |
-| **E**              | Session reports, print, accessibility & polish                                       | Pending |
-| **F**              | Backend wiring (persist receipts, NextAuth, real images, configurable tax)           | Later   |
+## Current architecture
 
-Do not implement a later phase until the current one is approved. The pure UI phases (A–E) use local React/Zustand state only — no localStorage, no receipt DB writes, no auth logic.
+- `client/`: Next.js 16 App Router, React 19, strict TypeScript, Tailwind CSS 4, shadcn/Radix UI, Zustand, TanStack Query, Zod, Lucide React.
+- `server/`: Node.js, Express 5, TypeScript, REST JSON API, Zod, Prisma 7, SQLite, `better-sqlite3` adapter.
+- `electron/`: development desktop shell that loads the local Next.js UI. Do not assume packaged/offline deployment or direct printer access.
+- Client routes: `/catalog`, `/orders`, `/reports`, `/settings`, and static `/login`; `/` redirects to `/catalog`.
+- Product data flow: UI -> TanStack Query hook -> product service -> Axios client -> `/api/products` -> Express route/controller/service -> Prisma -> SQLite. Product prices are serialized as two-decimal strings.
+- Local workflow: product cards -> Zustand in-memory cart -> receipt calculation/generation -> Zustand order store persisted in localStorage -> unpaid/paid order views. No server-side order API currently exists.
+- Use the existing project folder boundaries. Do not create `server/src/modules/`.
 
-### Core product model
+## Current capability caveats
 
-- Payment is manual (cash / EasyPaisa / transfer). The cashier only confirms it.
-- Dine in / Takeaway is a label only.
-- Tax is hard-coded for now.
-- No free-text receipt label, no table management, no kitchen slip.
+- Catalog search/category/filter controls are visual only; availability is not enforced in the current grid.
+- Reports and Settings are placeholders. Login does not authenticate. Editing/regenerating receipts is absent.
+- Receipt printing uses `react-to-print` and browser print UI. Current latest-receipt selection reads a stale render value after a store update, and a timeout can race print preparation.
+- The currency helper accepts paisa, but the product card currently passes the rupee amount directly. Cart money also uses JS numbers. Follow the documented integer-paisa target when working on this area and fix related conversions coherently.
+- The API welcome endpoint is `/`; `/api` has no welcome route. Health and products are under `/api`.
 
-## Required stack
+## Required stack and project constraints
 
-- `client/`: Next.js 16 App Router, React 19, strict TypeScript, Tailwind CSS 4, shadcn/ui with the `radix-nova` style (Radix UI through the `radix-ui` package, so use `asChild`), Zustand, Zod, Lucide React. Add React Hook Form when forms are introduced and Framer Motion only for restrained animation. Use `cn` from `@/lib/utils` (it re-exports the `cn` package).
-- This Next.js version has breaking changes. Before writing client code, read the relevant guide in `client/node_modules/next/dist/docs/` (see `client/AGENTS.md`). `cacheComponents` and `partialPrefetching` are enabled in `client/next.config.ts`.
-- `server/`: Node.js, Express 5, TypeScript, REST JSON APIs, Zod validation. Requests flow `routes/` → `controllers/` → `services/`.
-- Client layout under `client/src/`: `app/` (route groups `(auth)` and `(main)`), `components/ui/` (shadcn), `components/layout/`, `components/modules/<feature>/`, `components/providers/`, `store/`, `lib/`, `types/`.
-- Server layout under `server/src/`: `config/`, `lib/`, `middleware/`, `routes/`, `controllers/`, `services/`, `schemas/`, `utils/`. Seed data lives in `server/seeds/`. Do not create `server/src/modules/`.
-- Database: a local SQLite file through Prisma ORM 7 and the `better-sqlite3` driver adapter. The file is `server/data/cafe-pos.db` by default; it is gitignored and must never be committed. Never add PostgreSQL, MongoDB, or Mongoose.
-- Keep the Prisma 7 multi-file schema under `server/prisma/schema/`, with the single generator and datasource in `schema.prisma` and models separated by domain. Create migrations with `npm run db:migrate --prefix server`. Preserve migration history; do not reset or delete it without approval.
-- Desktop: an Electron shell (`electron/main.cjs`) exists for development only. Do not add packaging or installers until approved.
-- Tooling: npm, Git, ESLint, and Concurrently. npm blocks dependency install scripts by default. A new native dependency needs `npm install-scripts approve <package>`, which records it under `allowScripts` in `package.json`; commit that change.
+- Before editing Next.js code, read the relevant guide in `client/node_modules/next/dist/docs/`; `client/AGENTS.md` contains the local Next.js-specific instruction. `cacheComponents` and `partialPrefetching` are enabled in `client/next.config.ts`.
+- Client structure: `app/`, `components/ui/`, `components/layout/`, `components/modules/`, `components/providers/`, `store/`, `lib/`, and `types/`.
+- Server structure: `config/`, `lib/`, `middleware/`, `routes/`, `controllers/`, `services/`, `schemas/`, and `utils/`; seed files live in `server/seeds/`.
+- Keep the Prisma 7 multi-file schema in `server/prisma/schema/`: generator/datasource in `schema.prisma`, domain models in separate files. Create migrations with `npm run db:migrate --prefix server`; preserve history and do not reset/delete migrations without approval.
+- Database is local SQLite by default at `server/data/cafe-pos.db`; never commit the database or environment files. `PORT` defaults to 3000, `CLIENT_ORIGIN` to `http://localhost:3001`, and an optional `DATABASE_URL` must be a SQLite `file:` URL.
+- Use compatible dependencies and preserve existing package structure. npm may block install scripts; native packages must be explicitly approved through the repository's `allowScripts` workflow.
 
-Use stable compatible releases and preserve the existing package/app structure.
+## Architecture and quality rules
 
-## Architecture and quality
+- The browser talks to the backend through HTTP only; never connect client code directly to SQLite/Prisma.
+- Keep routes for URL mapping, controllers for HTTP adaptation, services for reusable business/data operations, and Prisma queries on the server.
+- Validate untrusted request values with Zod. Do not silently swallow errors or return success-shaped fallbacks.
+- API success shape is `{ success: true, message?, data? }`; errors are `{ error: { code, message, issues? } }` through the shared error middleware. `AppError` argument order is status code, error code, message.
+- Keep client product data aligned with the API: UUID string id, string price, nullable description/image URL, ISO timestamp strings, category, and availability. Maintain one Zod schema as the source for the client `Product` type.
+- Money source of truth is integer paisa. Convert API rupee strings once at a clear boundary, retain integer amounts through cart/receipt operations, and format at display boundaries. Do not use JS float arithmetic as money truth.
+- Preserve product name and unit-price snapshots in completed receipt lines so future product changes do not rewrite history.
+- Keep TypeScript strict; avoid `any` unless necessary and explained.
+- Use `cn()` from `@/lib/utils`. Define theme colors as CSS semantic tokens in `client/src/app/globals.css` and consume tokens rather than repeating arbitrary colors.
+- Prefer focused changes that match current naming and formatting. Update directly related docs when behavior, scripts, dependencies, or configuration changes.
 
-- The browser talks to the backend through HTTP only; never connect the browser directly to the database.
-- Keep business logic out of route handlers and controllers. Use services for reusable business operations and Prisma for server-side queries.
-- Validate untrusted request data with Zod. Report errors explicitly; do not silently swallow failures or return success-shaped fallbacks.
-- API contract. Success: `{ success: true, message?, data? }`. Errors: `{ error: { code, message, issues? } }`, produced by throwing `AppError(statusCode, code, message)` and handled by the error middleware. Note the argument order: status, code, message.
-- Money. `price` is a Prisma `Decimal`. SQLite stores it as a floating-point number underneath, so do money arithmetic in application code with `Decimal`, never with SQL `SUM`. The API sends prices as strings with two decimals (for example `"120.00"`). Never use JavaScript floating-point numbers as the source of truth for money. Convert to whole **paisa** (integer) for arithmetic; display with `Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", currencyDisplay: "code" })` → `PKR 120.00`. The database and API do not include the currency prefix.
-- Preserve product name and unit-price snapshots for items on completed orders.
-- Client types must match the API: `id` is a UUID string, `price` is a string, `description` and `imageUrl` are nullable, dates arrive as ISO strings, and products include `category` and `isAvailable`. Keep one Zod schema as the single source for the client `Product` type; do not duplicate it.
-- Keep TypeScript strict. Avoid `any` unless it is demonstrably necessary and explained.
-- Keep secrets and environment-specific settings out of source control. Never commit local environment files. `server/.env` is optional (`PORT` defaults to **3000**, `CLIENT_ORIGIN` defaults to `http://localhost:3001`, and an optional SQLite `DATABASE_URL` such as `file:./data/cafe-pos.db`).
-- Use shadcn/ui as the component library. Define reusable theme colors as global CSS theme tokens in `client/src/app/globals.css` and consume those tokens instead of repeating custom color values in components.
-- Prefer focused, readable changes that match existing naming, formatting, and patterns. Avoid unrelated features and new infrastructure.
-- Update directly related documentation when scripts, dependencies, configuration, or behavior change.
+## UI direction
 
-## Layout direction (Phase A+)
-
-- Compact left sidebar (icons + short labels) + main content.
-- On New Receipt: product grid scrolls; cart stays fixed on the right.
-- Fixed viewport height; no page-level scroll. Internal scroll only inside grids/lists.
-- Speed-first: one-tap add, minimal taps to generate, large targets (≥44 px).
+- Desktop/counter-first shell with sidebar and main workspace.
+- Catalog should keep a scrollable product area and visible receipt panel at desktop widths.
+- Optimize checkout for few taps, clear pricing, accessible controls, visible focus, and stable layouts. Do not assume the current interface already meets every target.
+- Support light/dark theme using existing tokens and `next-themes`.
 
 ## Working agreement
 
-- Inspect relevant files before editing; preserve useful existing configuration.
-- Before a non-trivial change, summarize the files to be created or modified.
-- Make changes only within the approved phase and explain important architectural choices in beginner-friendly language.
-- Run the smallest relevant check and report the actual result: `npm run typecheck`, `npm run lint`, `npm test`, or a build. Do not claim unrun checks or database connectivity.
-- If a requirement is ambiguous and affects architecture or behavior, ask before choosing a consequential option.
+- Inspect relevant source and documentation before editing. Summarize intended files for substantial changes.
+- Work only within the user's requested scope; do not jump into a later roadmap feature without approval.
+- Do not run tests or other checks unless the user asks to test/verify. If they ask, run the smallest relevant check and report the exact command/result; never imply a check ran when it did not.
+- Explain material behavior changes and architectural choices clearly. Treat assumptions as assumptions.
