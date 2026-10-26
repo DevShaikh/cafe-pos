@@ -92,7 +92,7 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 4. **Implement order creation and payment as transactional server operations.** Server must re-read product prices, calculate totals/tax, snapshot item names/prices, assign receipt numbers, record payment/audit events, and enforce idempotency. Never accept authoritative totals or receipt numbers from the client.
 5. **Move Orders and Reports to API-backed state.** Migrate existing local-state behaviors to server queries/mutations, define reconciliation for existing local receipts, and only then remove or downgrade client order persistence.
 6. **Add behavioral coverage around critical paths.** Include auth failures/session behavior, order and payment transitions, replayed idempotency keys, rounding, migration preservation, seed safety and the client/server contract. Existing API tests mock only the health query.
-7. **Align the client API environment example.** The Next proxy reads `SERVER_URL` and README documents it, but `client/.env.example` names `NEXT_PUBLIC_API_URL`, which current code does not use. Update the example so it does not send developers toward a non-working variable.
+7. **Keep client API configuration aligned.** The Next proxy reads `SERVER_URL`; README and `client/.env.example` now document that setting. Revisit this when the API proxy or local service ports change.
 8. **Finish product and v1 operational flows.** Wire search/category filters and availability, edit/void rules, settings-driven tax/receipt details, and reports breakdown/printing according to the agreed scope.
 9. **Defer Electron work until v1 is ready to boot.** Electron currently clears localStorage/cookies/IndexedDB at startup, which erases locally persisted receipts, and always loads localhost. Leave the Electron boot/storage lifecycle for the v1 boot milestone; resolve it before v1 desktop use.
 
@@ -124,7 +124,7 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 ## Environment and local startup
 
 - Server reads `server/.env` (or process environment): `NODE_ENV`, `PORT`, `DATABASE_URL`, `CLIENT_ORIGIN`. SQLite defaults to `server/data/cafe-pos.db` when `DATABASE_URL` is omitted.
-- The Next proxy reads `SERVER_URL` and needs a base URL for the Express service (locally, `http://localhost:3000`). README documents this, but the checked-in `client/.env.example` still documents `NEXT_PUBLIC_API_URL`, which current client code does not use.
+- The Next proxy reads `SERVER_URL` and needs a base URL for the Express service (locally, `http://localhost:3000`). This is documented in both README and `client/.env.example`.
 - The exploratory Vercel configuration gives the client service `SERVER_URL` through a service binding. It is not the production deployment plan; a Vercel deployment would need a persistent hosted database such as PostgreSQL rather than this local SQLite file.
 
 ## Maintenance note
