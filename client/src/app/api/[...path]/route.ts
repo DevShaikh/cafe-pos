@@ -10,9 +10,10 @@ async function proxy(request: NextRequest) {
     return new Response("SERVER_URL binding not configured", { status: 500 });
   }
 
-  // Strip the /api prefix that Next.js adds from the route path
-  const internalPath = request.nextUrl.pathname || "/";
-  const target = new URL(internalPath + request.nextUrl.search, SERVER_URL);
+  const target = new URL(
+    request.nextUrl.pathname + request.nextUrl.search,
+    SERVER_URL,
+  );
 
   const headers = new Headers(request.headers);
   headers.delete("host");
