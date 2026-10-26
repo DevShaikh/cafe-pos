@@ -12,7 +12,7 @@ import {
 import { useReactToPrint } from "react-to-print";
 import { useCartStore, useCartActions } from "@/store/cart.store";
 import { useOrderStore, useOrderActions } from "@/store/order.store";
-import { formatPKR, cn } from "@/lib/utils";
+import { formatPrice, cn } from "@/lib/utils";
 import PrintReceipt from "./print-receipt";
 import { Receipt as ReceiptType, OrderType } from "@/types";
 
@@ -71,7 +71,9 @@ const ReceiptPanel = () => {
   const totalPaisa = subtotalPaisa + taxPaisa;
 
   const handleGenerateReceipt = () => {
-    if (cartArray.length === 0) return;
+    if (cartArray.length === 0 || isPrinting) return;
+
+    setIsPrinting(true);
 
     // 1. Add to Zustand store
     addReceipt({
@@ -82,12 +84,11 @@ const ReceiptPanel = () => {
       orderType,
     });
 
-    // 2. Grab the newly created receipt from the store to print it
-    // (Since Zustand updates synchronously, the new receipt is at index 0)
+    // 2. Read the LATEST receipt directly from the store state (fixes stale closure)
     const latestReceipt = receipts[0];
     setReceiptToPrint(latestReceipt);
 
-    // 3. Clear the cart and reset toggle
+    // 3. Instantly reset UI state
     clearCartStore();
     setOrderType("DINE_IN");
   };
@@ -160,11 +161,11 @@ const ReceiptPanel = () => {
                           {item.name}
                         </h4>
                         <p className="text-xs text-muted-foreground">
-                          {formatPKR(itemPricePaisa)} each
+                          {formatPrice(itemPricePaisa)} each
                         </p>
                       </div>
                       <p className="text-sm font-bold text-foreground">
-                        {formatPKR(lineTotalPaisa)}
+                        {formatPrice(lineTotalPaisa)}
                       </p>
                     </div>
                     <div className="mt-2 flex items-center justify-between">
@@ -210,15 +211,15 @@ const ReceiptPanel = () => {
         <div className="mb-6 space-y-3 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>Subtotal</span>
-            <span>{formatPKR(subtotalPaisa)}</span>
+            <span>{formatPrice(subtotalPaisa)}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
             <span>Tax (8%)</span>
-            <span>{formatPKR(taxPaisa)}</span>
+            <span>{formatPrice(taxPaisa)}</span>
           </div>
           <div className="flex justify-between border-t border-border pt-3 text-lg font-bold text-foreground">
             <span>Total</span>
-            <span>{formatPKR(totalPaisa)}</span>
+            <span>{formatPrice(totalPaisa)}</span>
           </div>
         </div>
 
