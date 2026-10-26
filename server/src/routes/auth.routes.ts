@@ -4,6 +4,7 @@ import { requireAuth } from "../middleware/require-auth";
 
 const router = Router();
 
+router.get("/staff", authController.getActiveStaff);
 router.post("/login", authController.login);
 router.post("/logout", authController.logout);
 router.get("/me", requireAuth, authController.getCurrentStaff);

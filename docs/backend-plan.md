@@ -49,7 +49,7 @@ V1 is a local, single-cashier application, so SQLite remains the selected databa
 - Product list API reads Prisma products and serializes price as a two-decimal string. The UI adds products to a Zustand cart.
 - Receipt generation, 8% tax, receipt numbering, paid/unpaid state, reports, and printing are client-side. Receipts persist in browser localStorage via Zustand.
 - Express mounts `/api`, Helmet, single-origin CORS, JSON/urlencoded parsers, request logging, cookie parsing, JSON 404s, and a global error handler.
-- API routes currently include `GET /api`, `GET /api/health`, `GET /api/products`, `POST /api/auth/login`, `POST /api/auth/logout`, and `GET /api/auth/me`.
+- API routes currently include `GET /api`, `GET /api/health`, `GET /api/products`, `GET /api/auth/staff`, `POST /api/auth/login`, `POST /api/auth/logout`, and `GET /api/auth/me`.
 - Login finds active staff by UUID and checks a bcrypt PIN. With a configured `JWT_SECRET`, it signs a 12-hour JWT, writes an audit log, and sets an HTTP-only `pos_session` cookie. Production startup requires the secret; development login fails clearly until one is configured. Logout clears the cookie.
 - Prisma has Product, Order, OrderItem, Payment, Settings, Staff, AuditLog, Counter and IdempotencyKey models. A default admin is seeded with PIN `1234` if no admin exists.
 - The seed script inserts demo products that are missing by name and preserves existing catalog rows and order items.
@@ -58,7 +58,7 @@ V1 is a local, single-cashier application, so SQLite remains the selected databa
 ### Not implemented (despite target decisions or page names)
 
 - No order or payment API/controller/service exists. Orders page and reports still read the local Zustand receipt store.
-- The client has no authentication/session state, login form, or route guard; the login page is only `LoginPage` text. The server can verify the session for `/api/auth/me`, but product and other business routes are not protected yet.
+- The client has staff selection/PIN login, checks `/api/auth/me`, gates the main route group, and can clear the session cookie. The server verifies the session on `/api/auth/me`, but product and other business routes are not protected yet.
 - No edit/regenerate, void/refund, payment method capture, session/open-close model, or server-backed reports flow is present.
 - Catalog search/category controls are visual only; product query schema includes filters but the controller/service do not parse/use them. Product create schema exists but there is no create route.
 - Settings page, cashier identity, register status, and notification controls are placeholders/static UI.
@@ -78,7 +78,7 @@ Product cards → Zustand cart → receipt panel calculates subtotal and hardcod
 
 ### Login today
 
-The login page has no form or network call. The server login route is callable directly with `{ staffId, pin }`; a successful request sets a cookie. No server middleware reads or validates that cookie on protected operations because none are implemented. Logout only clears the browser cookie.
+The client loads active staff, submits `{ staffId, pin }`, and receives an HTTP-only cookie through the same-origin Next proxy. The main route group checks `/api/auth/me`; its middleware verifies the JWT and reloads the active staff record from SQLite. Logout clears the cookie. Product and future business APIs do not yet require this middleware.
 
 ### Desktop today
 
@@ -88,7 +88,7 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 
 1. **Resolve the destructive product migration before v1.** `20261026175721_add_pos_core_models` drops and recreates `products`. It is already applied to the local development database, so do not edit the committed migration in place without an intentional backup and migration rebaseline. Before v1, establish a safe migration history for any database that has real catalog data. The seed script now preserves existing products and order items while inserting missing demo products.
 2. **Settle the money representation and migrate consistently.** Decisions say integer paisa, but Product, Order, OrderItem, Payment and Settings use `Float`; current client prices are PKR decimal numbers/strings. Choose integer minor units end-to-end before order APIs and migrate the database without rounding loss.
-3. **Finish authentication before exposing order/payment writes.** Add cookie/session verification and a current-user endpoint, protect business routes, and enforce staff active/role policy. Add a client login/logout/session flow before relying on the current login route; there is currently no endpoint for the client to discover a staff UUID for the login payload.
+3. **Finish server-side authorization before exposing order/payment writes.** Protect business routes, enforce staff active/role policy, and add rate limiting to PIN login. The client session UI and `/api/auth/me` endpoint are now implemented, but APIs other than `/api/auth/me` are not protected.
 4. **Implement order creation and payment as transactional server operations.** Server must re-read product prices, calculate totals/tax, snapshot item names/prices, assign receipt numbers, record payment/audit events, and enforce idempotency. Never accept authoritative totals or receipt numbers from the client.
 5. **Move Orders and Reports to API-backed state.** Migrate existing local-state behaviors to server queries/mutations, define reconciliation for existing local receipts, and only then remove or downgrade client order persistence.
 6. **Add behavioral coverage around critical paths.** Include auth failures/session behavior, order and payment transitions, replayed idempotency keys, rounding, migration preservation, seed safety and the client/server contract. Existing API tests mock only the health query.
@@ -100,7 +100,7 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 
 1. Resolve the migration and seed data-safety issues; establish an explicit backup/reset policy.
 2. Decide on integer paisa and revise Prisma schema/migrations/API contracts, including `taxRateBps`.
-3. Complete auth and session middleware; wire the login UI and protect routes.
+3. Add server-side authorization to business routes and define role policy before adding order/payment writes.
 4. Add product filters and API contract tests if needed by the checkout flow.
 5. Implement order create/read/edit-or-void and payment endpoints. Use database transactions for receipt counter, order/items, payment transition, audit events, and idempotency record.
 6. Switch client receipt/orders state to server queries and mutations; retain a deliberate offline/retry strategy for the single-counter deployment.
@@ -114,9 +114,10 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 | `GET /api` | Welcome metadata | Implemented |
 | `GET /api/health` | API and database connectivity | Implemented |
 | `GET /api/products` | List all products; no filters applied | Implemented |
-| `POST /api/auth/login` | `{ staffId, pin }`, sets `pos_session` cookie | Partial; no client/session guard |
+| `GET /api/auth/staff` | List active staff IDs and names for login selection | Implemented |
+| `POST /api/auth/login` | `{ staffId, pin }`, sets `pos_session` cookie | Implemented; add rate limiting |
 | `POST /api/auth/logout` | Clears cookie | Partial; no server token revocation |
-| `GET /api/auth/me` | Verifies cookie and returns active staff | Implemented; not yet used by client |
+| `GET /api/auth/me` | Verifies cookie and returns active staff | Implemented; used by the main UI gate |
 | `POST /api/orders` | Create unpaid order | Missing |
 | `GET /api/orders` / `GET /api/orders/:id` | Read orders | Missing |
 | `POST /api/orders/:id/payments` | Mark paid / record manual tender | Missing |

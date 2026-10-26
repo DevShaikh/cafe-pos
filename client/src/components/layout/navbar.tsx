@@ -3,12 +3,34 @@
 import { usePathname } from "next/navigation";
 import ModeToggle from "@/components/ui/mode-toggle"; // Adjust path if needed
 import { CircleDot } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { logout } from "@/lib/services/auth.service";
+import { authKeys, useCurrentStaff } from "@/lib/hooks/auth.hooks";
 
 const Navbar = () => {
   const pathname = usePathname();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { data: staff } = useCurrentStaff();
   const [time, setTime] = useState<string>("");
+  const logoutMutation = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: authKeys.session });
+      router.replace("/login");
+    },
+  });
+
+  const initials = staff?.name
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   // Live clock for the cashier
   useEffect(() => {
@@ -61,16 +83,28 @@ const Navbar = () => {
 
         <ModeToggle />
 
-        <div className="flex items-center gap-2.5 cursor-pointer">
+        <div className="flex items-center gap-2.5">
           <div className="flex-col items-end hidden sm:flex">
-            <span className="text-xs font-bold text-foreground">Cashier</span>
+            <span className="text-xs font-bold text-foreground">
+              {staff?.name ?? "Cashier"}
+            </span>
             <span className="text-[10px] text-muted-foreground">
               Register 01
             </span>
           </div>
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow-sm">
-            JS
+            {initials || "--"}
           </div>
+          <button
+            type="button"
+            aria-label="Sign out"
+            title="Sign out"
+            disabled={logoutMutation.isPending}
+            onClick={() => logoutMutation.mutate()}
+            className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
     </header>

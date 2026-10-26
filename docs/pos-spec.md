@@ -33,7 +33,7 @@ Cafe POS is a locally running, single-cashier point-of-sale application for a ca
 - No multi-user login for waiters.
 - No inventory management, stock counts, or product editing screens.
 - Receipt data is held in Zustand `persist` localStorage; there is no order/payment API yet. Electron currently clears that storage at startup.
-- The login page is a placeholder. The server has login/logout handlers, but no client login flow, session lookup, or protected API routes.
+- The client provides staff selection, PIN login, session checking, and main-view gating. Product and future order/payment API routes still need server-side authentication middleware.
 
 ### 1.3 Core mental model
 
@@ -184,7 +184,7 @@ total = subtotal + tax
 
 - See [`docs/backend-plan.md`](backend-plan.md) for the full architecture, schema, API contract, and phased execution plan.
 - Implemented so far: SQLite/Prisma models and migrations, seed script, product list API, and partial server-side login/logout endpoints.
-- Still missing: durable order and payment routes, auth enforcement and client session flow, server-owned totals, idempotency, and reports from persisted data.
+- Still missing: durable order and payment routes, server-side auth enforcement on business APIs, server-owned totals, idempotency, and reports from persisted data.
 
 ---
 

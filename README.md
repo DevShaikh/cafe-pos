@@ -2,7 +2,7 @@
 
 A locally running cafe point-of-sale app for the counter. Built as a learning and portfolio project.
 
-**Status:** The catalog is connected to the API. Orders and payments still run in browser state; authentication has a server-side login skeleton but no client flow or protected routes. Phase F is in progress. See [`docs/backend-plan.md`](docs/backend-plan.md) for the verified implementation state and priorities.
+**Status:** The catalog is connected to the API. Staff can sign in through the client and the main UI checks the server session; order and payment data still run in browser state. Phase F is in progress. See [`docs/backend-plan.md`](docs/backend-plan.md) for the verified implementation state and priorities.
 
 ---
 

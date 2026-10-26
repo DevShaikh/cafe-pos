@@ -5,6 +5,19 @@ import { loginSchema } from "../schemas/auth";
 import AppError from "../utils/app-error";
 import { ERROR_CODES } from "../constants/error-codes";
 
+export const getActiveStaff = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const staff = await authService.getActiveStaff();
+    sendSuccessResponse(res, 200, staff, "Active staff retrieved successfully");
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const login = async (
   req: Request,
   res: Response,

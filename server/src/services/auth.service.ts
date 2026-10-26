@@ -6,6 +6,14 @@ import AppError from "../utils/app-error";
 import { LoginInput } from "../schemas/auth";
 import configuration from "../config/env";
 
+export const getActiveStaff = async () => {
+  return prismaClient.staff.findMany({
+    where: { active: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+};
+
 export const login = async (data: LoginInput) => {
   const staff = await prismaClient.staff.findUnique({
     where: { id: data.staffId },
