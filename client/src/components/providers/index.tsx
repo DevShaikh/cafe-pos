@@ -1,3 +1,4 @@
+import { TooltipProvider } from "@/components/ui/tooltip";
 import QueryProvider from "./query-provider";
 import ThemeProvider from "./theme-provider";
 
@@ -10,7 +11,7 @@ const Providers: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         enableSystem
         disableTransitionOnChange
       >
-        {children}
+        <TooltipProvider>{children}</TooltipProvider>
       </ThemeProvider>
     </QueryProvider>
   );

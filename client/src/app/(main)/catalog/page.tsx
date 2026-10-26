@@ -8,28 +8,29 @@ import ProductCard from "@/components/modules/product-card";
 import { useProducts } from "@/lib/hooks/product.hooks";
 
 const CatalogPage = () => {
-  // Assuming your hook returns standard React Query properties
   const { data: products, isLoading, isError } = useProducts();
 
   return (
-    <div className="flex h-full w-full gap-6">
+    <div className="flex h-full gap-6">
       {/* Left Side: Menu */}
       <div className="flex flex-1 flex-col gap-6 min-w-0">
-        <div className="flex items-center justify-between">
+        {/* Header Row */}
+        <div className="flex items-end justify-between">
           <div>
-            <h3 className="text-xl font-bold text-foreground">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
               Add items quickly
-            </h3>
+            </h1>
             <p className="text-sm text-muted-foreground">
               Tap an item to add it to the receipt.
             </p>
           </div>
-          <div className="relative w-64">
+
+          <div className="relative w-72">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search menu"
-              className="w-full rounded-xl border border-border bg-card py-2 pl-9 pr-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
+              placeholder="Search menu..."
+              className="w-full rounded-xl border border-border bg-background py-2.5 pl-9 pr-4 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary transition-all"
             />
           </div>
         </div>

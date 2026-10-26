@@ -50,12 +50,11 @@ const ReceiptPanel = () => {
 
   const cartArray = Object.values(cartItems);
 
-  // Standard Math (No Paisa)
   const subtotal = cartArray.reduce((sum, item) => {
     return sum + item.price * item.quantity;
   }, 0);
 
-  const tax = subtotal * 0.08;
+  const tax = Math.round(subtotal * 0.08 * 100) / 100;
   const total = subtotal + tax;
 
   const handleGenerateReceipt = () => {

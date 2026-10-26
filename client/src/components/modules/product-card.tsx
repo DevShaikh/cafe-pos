@@ -1,8 +1,7 @@
-import { Plus } from "lucide-react";
-
+import { Plus, Coffee } from "lucide-react";
 import { useCartActions } from "@/store/cart.store";
-import { Product } from "@/lib/schemas/product.schema";
 import { formatPrice } from "@/lib/utils";
+import { Product } from "@/lib/schemas/product.schema";
 
 interface ProductCardProps {
   product: Product;
@@ -10,27 +9,29 @@ interface ProductCardProps {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const { addItem } = useCartActions();
+  const formattedPrice = formatPrice(parseFloat(product.price));
 
   return (
-    <div className="group relative flex flex-col rounded-2xl border border-border bg-card p-3 shadow-sm transition-all hover:border-primary/50 hover:shadow-md">
+    <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:border-primary/50 hover:shadow-md">
       {/* Image Placeholder */}
-      <div className="mb-3 flex aspect-4/3 w-full items-center justify-center rounded-xl bg-muted text-muted-foreground/30">
-        <span className="text-xs font-medium">No Image</span>
+      <div className="relative flex aspect-4/3 w-full items-center justify-center bg-muted/30 transition-colors group-hover:bg-muted/50">
+        <Coffee className="h-10 w-10 text-muted-foreground/40 transition-transform group-hover:scale-110" />
       </div>
 
-      <div className="flex flex-1 flex-col justify-between">
+      {/* Content */}
+      <div className="flex flex-1 flex-col justify-between p-4">
         <div>
           <h4 className="text-sm font-bold text-foreground leading-tight">
             {product.name}
           </h4>
-          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
             {product.description || "No description"}
           </p>
         </div>
 
-        <div className="mt-3 flex items-center justify-between">
+        <div className="mt-4 flex items-center justify-between">
           <span className="text-sm font-bold text-primary">
-            {formatPrice(parseFloat(product.price))}
+            {formattedPrice}
           </span>
           <button
             onClick={() =>
@@ -40,7 +41,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
                 price: parseFloat(product.price),
               })
             }
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground shadow-sm transition-all hover:bg-primary hover:text-primary-foreground active:scale-95"
           >
             <Plus size={16} strokeWidth={2.5} />
           </button>

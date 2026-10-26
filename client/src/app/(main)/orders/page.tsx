@@ -13,16 +13,6 @@ const OrdersPage = () => {
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-y-auto">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Orders & Payments
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Mark receipts as paid when the waiter returns with cash.
-        </p>
-      </div>
-
       {/* Unpaid Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
