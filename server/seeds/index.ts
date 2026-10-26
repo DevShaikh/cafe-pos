@@ -1,5 +1,6 @@
 import { prismaClient } from "../src/lib/prismaClient";
 import bcrypt from "bcryptjs";
+import products from "./products";
 
 async function main() {
   console.log("Starting seed...");
@@ -37,139 +38,22 @@ async function main() {
     console.log("ℹ️ Admin user already exists.");
   }
 
-  // 3. Seed Products
-  // We clear old products because the price type changed from String to Float.
-  // In production, you would never delete products like this, but for dev re-seeding it's fine.
-  await prismaClient.orderItem.deleteMany();
-  await prismaClient.product.deleteMany();
-
-  const products = [
-    {
-      name: "Doodh Patti Chai",
-      description: "Traditional Pakistani milk tea",
-      price: 100.0,
-      category: "Tea & Beverages",
-    },
-    {
-      name: "Karak Chai",
-      description: "Strong, creamy karak tea",
-      price: 120.0,
-      category: "Tea & Beverages",
-    },
-    {
-      name: "Elachi Chai",
-      description: "Milk tea infused with cardamom",
-      price: 130.0,
-      category: "Tea & Beverages",
-    },
-    {
-      name: "Green Tea (Kehwa)",
-      description: "Light green tea served hot",
-      price: 100.0,
-      category: "Tea & Beverages",
-    },
-    {
-      name: "Kashmiri Chai",
-      description: "Traditional pink tea",
-      price: 180.0,
-      category: "Tea & Beverages",
-    },
-    {
-      name: "Plain Paratha",
-      description: "Freshly fried flaky paratha",
-      price: 100.0,
-      category: "Breakfast",
-    },
-    {
-      name: "Aloo Paratha",
-      description: "Paratha stuffed with spiced potatoes",
-      price: 180.0,
-      category: "Breakfast",
-    },
-    {
-      name: "Anda Paratha",
-      description: "Paratha filled with egg",
-      price: 200.0,
-      category: "Breakfast",
-    },
-    {
-      name: "Cheese Paratha",
-      description: "Paratha stuffed with melted cheese",
-      price: 250.0,
-      category: "Breakfast",
-    },
-    {
-      name: "Roghni Naan",
-      description: "Soft naan topped with sesame seeds",
-      price: 150.0,
-      category: "Breakfast",
-    },
-    {
-      name: "Fried Eggs (2)",
-      description: "Two eggs fried to order",
-      price: 120.0,
-      category: "Breakfast",
-    },
-    {
-      name: "Masala Omelette",
-      description: "Egg omelette with onion, tomato, green chilli",
-      price: 180.0,
-      category: "Breakfast",
-    },
-    {
-      name: "Chicken Karahi (Half)",
-      description: "Spicy chicken karahi cooked in tomatoes",
-      price: 1200.0,
-      category: "Lunch",
-    },
-    {
-      name: "Chicken Karahi (Full)",
-      description: "Full portion of our signature karahi",
-      price: 2200.0,
-      category: "Lunch",
-    },
-    {
-      name: "Daal Fry",
-      description: "Yellow lentils tempered with cumin",
-      price: 400.0,
-      category: "Lunch",
-    },
-    {
-      name: "Chicken Biryani",
-      description: "Aromatic basmati rice with chicken",
-      price: 450.0,
-      category: "Lunch",
-    },
-    {
-      name: "Club Sandwich",
-      description: "Triple decker with chicken and egg",
-      price: 550.0,
-      category: "Lunch",
-    },
-    {
-      name: "Chicken Shawarma",
-      description: "Wrap with garlic sauce and pickles",
-      price: 350.0,
-      category: "Lunch",
-    },
-    {
-      name: "Zinger Burger",
-      description: "Crispy chicken fillet burger",
-      price: 600.0,
-      category: "Lunch",
-    },
-    {
-      name: "French Fries",
-      description: "Crispy golden fries",
-      price: 250.0,
-      category: "Lunch",
-    },
-  ];
-
-  await prismaClient.product.createMany({
-    data: products,
+  // 3. Add missing demo products without replacing the cafe's catalog.
+  const existingProducts = await prismaClient.product.findMany({
+    select: { name: true },
   });
-  console.log(`✅ ${products.length} products seeded.`);
+  const existingNames = new Set(existingProducts.map(({ name }) => name));
+  const productsToCreate = products.filter(
+    ({ name }) => !existingNames.has(name),
+  );
+
+  if (productsToCreate.length > 0) {
+    await prismaClient.product.createMany({ data: productsToCreate });
+  }
+
+  console.log(
+    `Products preserved: ${existingProducts.length}; demo products added: ${productsToCreate.length}.`,
+  );
 
   console.log("Seeding finished successfully!");
 }

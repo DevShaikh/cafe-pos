@@ -48,6 +48,7 @@ scripts/                 Package version synchronization helper
 - API routes currently include `GET /api`, `GET /api/health`, `GET /api/products`, `POST /api/auth/login`, and `POST /api/auth/logout`.
 - Login finds active staff by UUID, checks a bcrypt PIN, signs a 12-hour JWT, writes an audit log, and sets an HTTP-only `pos_session` cookie. Logout clears that cookie.
 - Prisma has Product, Order, OrderItem, Payment, Settings, Staff, AuditLog, Counter and IdempotencyKey models. A default admin is seeded with PIN `1234` if no admin exists.
+- The seed script inserts demo products that are missing by name and preserves existing catalog rows and order items.
 - The server test file covers health success/failure, Helmet, CORS, unknown routes, malformed JSON and unexpected error masking. It does not cover product behavior, auth, order/payment behavior, or migration/data preservation.
 
 ### Not implemented (despite target decisions or page names)
@@ -81,7 +82,7 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 
 ## Fix first: prioritized findings
 
-1. **Protect existing database contents before applying migrations.** `20261026175721_add_pos_core_models` drops and recreates the existing `products` table. Back up and replace this migration with a data-preserving SQLite migration before applying it to any database with real products. The seed script also deletes all `OrderItem` and `Product` rows before reseeding; make reset behavior explicit and dev-only.
+1. **Resolve the destructive product migration before v1.** `20261026175721_add_pos_core_models` drops and recreates `products`. It is already applied to the local development database, so do not edit the committed migration in place without an intentional backup and migration rebaseline. Before v1, establish a safe migration history for any database that has real catalog data. The seed script now preserves existing products and order items while inserting missing demo products.
 2. **Settle the money representation and migrate consistently.** Decisions say integer paisa, but Product, Order, OrderItem, Payment and Settings use `Float`; current client prices are PKR decimal numbers/strings. Choose integer minor units end-to-end before order APIs and migrate the database without rounding loss.
 3. **Finish authentication before exposing order/payment writes.** Validate `JWT_SECRET` from environment (no fallback secret), map malformed login input to a validation 400, add cookie/session verification and a current-user endpoint, protect business routes, and enforce staff active/role policy. Add a client login/logout/session flow before relying on the current login route; there is currently no endpoint for the client to discover a staff UUID for the login payload.
 4. **Implement order creation and payment as transactional server operations.** Server must re-read product prices, calculate totals/tax, snapshot item names/prices, assign receipt numbers, record payment/audit events, and enforce idempotency. Never accept authoritative totals or receipt numbers from the client.
