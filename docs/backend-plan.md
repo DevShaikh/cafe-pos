@@ -47,9 +47,10 @@ V1 is a local, single-cashier application, so SQLite remains the selected databa
 - Next.js pages exist for catalog, orders, reports, settings, and login. The root URL redirects to `/catalog`.
 - Catalog fetches products through a TanStack Query hook and the browser calls the Next catch-all `/api/*` proxy, which forwards to Express using `SERVER_URL`.
 - Product list API reads Prisma products and returns integer `pricePaisa` values. Product cards convert to PKR for display while the Zustand cart stores integer paisa.
-- Receipt generation, 8% tax, receipt numbering, paid/unpaid state, reports, and printing are client-side. Cart and local receipt calculations use integer paisa; Zustand migrates older decimal-PKR receipts in browser localStorage.
+- The server now supports transactional order creation and manual payment recording with integer-paisa totals, product snapshots, configured tax basis points, receipt counters, audit events, and idempotency keys. These APIs require an authenticated staff session.
+- Receipt generation, 8% tax, receipt numbering, paid/unpaid state, reports, and printing in the current UI remain client-side. Cart and local receipt calculations use integer paisa; Zustand migrates older decimal-PKR receipts in browser localStorage.
 - Express mounts `/api`, Helmet, single-origin CORS, JSON/urlencoded parsers, request logging, cookie parsing, JSON 404s, and a global error handler.
-- API routes currently include `GET /api`, `GET /api/health`, `GET /api/products`, `GET /api/auth/staff`, `POST /api/auth/login`, `POST /api/auth/logout`, and `GET /api/auth/me`.
+- API routes include `GET /api`, `GET /api/health`, `GET /api/products`, auth staff/login/logout/me routes, and authenticated order list/create/read/payment routes.
 - Login finds active staff by UUID and checks a bcrypt PIN. With a configured `JWT_SECRET`, it signs a 12-hour JWT, writes an audit log, and sets an HTTP-only `pos_session` cookie. Production startup requires the secret; development login fails clearly until one is configured. Logout clears the cookie.
 - Prisma has Product, Order, OrderItem, Payment, Settings, Staff, AuditLog, Counter and IdempotencyKey models. A default admin is seeded with PIN `1234` if no admin exists.
 - The seed script inserts demo products that are missing by name and preserves existing catalog rows and order items.
@@ -57,13 +58,13 @@ V1 is a local, single-cashier application, so SQLite remains the selected databa
 
 ### Not implemented (despite target decisions or page names)
 
-- No order or payment API/controller/service exists. Orders page and reports still read the local Zustand receipt store.
-- The client has staff selection/PIN login, checks `/api/auth/me`, gates the main route group, and can clear the session cookie. The server verifies sessions for `/api/auth/me` and protects the product API; future business routes must use the same middleware.
+- Orders page and reports still read the local Zustand receipt store; the new server order/payment API is not yet wired into those screens.
+- The client has staff selection/PIN login, checks `/api/auth/me`, gates the main route group, and can clear the session cookie. The server verifies sessions for `/api/auth/me`, products, and orders; role based authorization remains undefined.
 - No edit/regenerate, void/refund, payment method capture, session/open-close model, or server-backed reports flow is present.
 - Catalog search/category controls are visual only; product query schema includes filters but the controller/service do not parse/use them. Product create schema exists but there is no create route.
 - Settings page, cashier identity, register status, and notification controls are placeholders/static UI.
-- Product prices and order/payment monetary columns use integer paisa in the Prisma schema; tax rates use basis points. The product API sends `pricePaisa`. Order/payment routes do not yet exist, so receipts and payments still exist only in browser state.
-- `IdempotencyKey` is only a Prisma model. No endpoint or code uses it.
+- Product prices and order/payment monetary columns use integer paisa in the Prisma schema; tax rates use basis points. The product API sends `pricePaisa` and order APIs return integer-paisa totals.
+- Server order creation and payment recording use `IdempotencyKey`; order writes, receipt counter updates, payment transitions, events, and audit records are transactional.
 - Electron has no packaged/offline server lifecycle or build configuration in this repo. It loads `http://localhost:3001` in both packaged and development modes.
 
 ## Actual user flows
@@ -87,9 +88,9 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 ## Fix first: prioritized findings
 
 1. **Resolve the destructive product migration before v1.** `20261026175721_add_pos_core_models` drops and recreates `products`. It is already applied to the local development database, so do not edit the committed migration in place without an intentional backup and migration rebaseline. Before v1, establish a safe migration history for any database that has real catalog data. The seed script now preserves existing products and order items while inserting missing demo products.
-2. **Move receipt and payment ownership to the server.** The cart and local receipt calculations now use integer paisa. Implement order/payment APIs and make the server the source of truth for totals and payment status.
-3. **Finish server-side authorization before exposing order/payment writes.** Define role policy and add rate limiting to PIN login. The client session flow and authenticated product API are now implemented; use the same middleware on all future business routes.
-4. **Implement order creation and payment as transactional server operations.** Server must re-read product prices, calculate totals/tax, snapshot item names/prices, assign receipt numbers, record payment/audit events, and enforce idempotency. Never accept authoritative totals or receipt numbers from the client.
+2. **Move receipt and payment ownership to the server.** Transactional order/payment APIs now calculate server totals. Make the Orders UI use these APIs and reconcile existing local receipts before changing persistence.
+3. **Finish server-side authorization.** Define role policy for business operations and add rate limiting to PIN login. Current product and order routes require an active staff session.
+4. **Implement order creation and payment as transactional server operations.** Implemented for create and mark-paid flows. Keep server authoritative for prices, totals/tax, item snapshots, receipt numbers, payment events and idempotency; add coverage before relying on the flows in production.
 5. **Move Orders and Reports to API-backed state.** Migrate existing local-state behaviors to server queries/mutations, define reconciliation for existing local receipts, and only then remove or downgrade client order persistence.
 6. **Add behavioral coverage around critical paths.** Include auth failures/session behavior, order and payment transitions, replayed idempotency keys, rounding, migration preservation, seed safety and the client/server contract. Existing API tests mock only the health query.
 7. **Keep client API configuration aligned.** The Next proxy reads `SERVER_URL`; README and `client/.env.example` now document that setting. Revisit this when the API proxy or local service ports change.
@@ -99,10 +100,10 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 ## Recommended implementation sequence
 
 1. Resolve the migration and seed data-safety issues; establish an explicit backup/reset policy.
-2. Implement transactional order and payment APIs using the integer-paisa schema, then replace local order state with API-backed queries and mutations.
-3. Add server-side authorization to business routes and define role policy before adding order/payment writes.
+2. Implement transactional order/payment APIs using integer paisa (done); next reconcile local receipts, then replace local order state with API-backed queries and mutations.
+3. Define role policy, add login rate limiting, and add API contract coverage for auth and order/payment behavior.
 4. Add product filters and API contract tests if needed by the checkout flow.
-5. Implement order create/read/edit-or-void and payment endpoints. Use database transactions for receipt counter, order/items, payment transition, audit events, and idempotency record.
+5. Add edit/void order operations and the remaining payment tender details as v1 scope requires.
 6. Switch client receipt/orders state to server queries and mutations; retain a deliberate offline/retry strategy for the single-counter deployment.
 7. Build reports from persisted data, then finish settings and v1 web boot behavior.
 8. When v1 is ready to boot, address Electron startup, storage preservation, and packaging as a dedicated milestone.
@@ -118,9 +119,9 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 | `POST /api/auth/login` | `{ staffId, pin }`, sets `pos_session` cookie | Implemented; add rate limiting |
 | `POST /api/auth/logout` | Clears cookie | Partial; no server token revocation |
 | `GET /api/auth/me` | Verifies cookie and returns active staff | Implemented; used by the main UI gate |
-| `POST /api/orders` | Create unpaid order | Missing |
-| `GET /api/orders` / `GET /api/orders/:id` | Read orders | Missing |
-| `POST /api/orders/:id/payments` | Mark paid / record manual tender | Missing |
+| `POST /api/orders` | Create unpaid order from product IDs and quantities; requires `Idempotency-Key` | Implemented; authenticated |
+| `GET /api/orders` / `GET /api/orders/:id` | Read recent orders (limit 1–200) and order details | Implemented; authenticated |
+| `POST /api/orders/:id/payments` | Mark an unpaid order paid using a payment method; requires `Idempotency-Key` | Implemented; authenticated |
 | `GET /api/reports/session` | Session summary | Missing |
 
 ## Environment and local startup

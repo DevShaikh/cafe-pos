@@ -10,6 +10,7 @@ import configuration from "../config/env";
 import healthRoutes from "./health.routes";
 import productRoutes from "./product.routes";
 import authRoutes from "./auth.routes";
+import orderRoutes from "./order.routes";
 
 const router = Router();
 
@@ -27,5 +28,6 @@ router.get("/", (_req, res) => {
 router.use("/auth", authRoutes); // Mount auth routes at /auth
 router.use("/health", healthRoutes); // Mount health routes at /health
 router.use("/products", productRoutes); // Mount product routes at /products
+router.use("/orders", orderRoutes); // Mount order routes at /orders
 
 export default router;
