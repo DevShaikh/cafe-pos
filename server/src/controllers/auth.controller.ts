@@ -48,3 +48,23 @@ export const logout = async (
     next(error);
   }
 };
+
+export const getCurrentStaff = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  if (!req.authenticatedStaff) {
+    next(
+      new AppError(
+        401,
+        ERROR_CODES.UNAUTHORIZED,
+        "Authentication is required.",
+      ),
+    );
+    return;
+  }
+
+  res.setHeader("Cache-Control", "no-store");
+  sendSuccessResponse(res, 200, req.authenticatedStaff, "Session is active");
+};

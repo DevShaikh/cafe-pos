@@ -49,7 +49,7 @@ V1 is a local, single-cashier application, so SQLite remains the selected databa
 - Product list API reads Prisma products and serializes price as a two-decimal string. The UI adds products to a Zustand cart.
 - Receipt generation, 8% tax, receipt numbering, paid/unpaid state, reports, and printing are client-side. Receipts persist in browser localStorage via Zustand.
 - Express mounts `/api`, Helmet, single-origin CORS, JSON/urlencoded parsers, request logging, cookie parsing, JSON 404s, and a global error handler.
-- API routes currently include `GET /api`, `GET /api/health`, `GET /api/products`, `POST /api/auth/login`, and `POST /api/auth/logout`.
+- API routes currently include `GET /api`, `GET /api/health`, `GET /api/products`, `POST /api/auth/login`, `POST /api/auth/logout`, and `GET /api/auth/me`.
 - Login finds active staff by UUID and checks a bcrypt PIN. With a configured `JWT_SECRET`, it signs a 12-hour JWT, writes an audit log, and sets an HTTP-only `pos_session` cookie. Production startup requires the secret; development login fails clearly until one is configured. Logout clears the cookie.
 - Prisma has Product, Order, OrderItem, Payment, Settings, Staff, AuditLog, Counter and IdempotencyKey models. A default admin is seeded with PIN `1234` if no admin exists.
 - The seed script inserts demo products that are missing by name and preserves existing catalog rows and order items.
@@ -58,7 +58,7 @@ V1 is a local, single-cashier application, so SQLite remains the selected databa
 ### Not implemented (despite target decisions or page names)
 
 - No order or payment API/controller/service exists. Orders page and reports still read the local Zustand receipt store.
-- No client authentication/session state, form, current-user endpoint, route guard, auth middleware, or role/active-user enforcement exists. The login page is only `LoginPage` text.
+- The client has no authentication/session state, login form, or route guard; the login page is only `LoginPage` text. The server can verify the session for `/api/auth/me`, but product and other business routes are not protected yet.
 - No edit/regenerate, void/refund, payment method capture, session/open-close model, or server-backed reports flow is present.
 - Catalog search/category controls are visual only; product query schema includes filters but the controller/service do not parse/use them. Product create schema exists but there is no create route.
 - Settings page, cashier identity, register status, and notification controls are placeholders/static UI.
@@ -116,6 +116,7 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 | `GET /api/products` | List all products; no filters applied | Implemented |
 | `POST /api/auth/login` | `{ staffId, pin }`, sets `pos_session` cookie | Partial; no client/session guard |
 | `POST /api/auth/logout` | Clears cookie | Partial; no server token revocation |
+| `GET /api/auth/me` | Verifies cookie and returns active staff | Implemented; not yet used by client |
 | `POST /api/orders` | Create unpaid order | Missing |
 | `GET /api/orders` / `GET /api/orders/:id` | Read orders | Missing |
 | `POST /api/orders/:id/payments` | Mark paid / record manual tender | Missing |
