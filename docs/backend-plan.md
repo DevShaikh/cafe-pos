@@ -58,7 +58,7 @@ V1 is a local, single-cashier application, so SQLite remains the selected databa
 ### Not implemented (despite target decisions or page names)
 
 - No order or payment API/controller/service exists. Orders page and reports still read the local Zustand receipt store.
-- The client has staff selection/PIN login, checks `/api/auth/me`, gates the main route group, and can clear the session cookie. The server verifies the session on `/api/auth/me`, but product and other business routes are not protected yet.
+- The client has staff selection/PIN login, checks `/api/auth/me`, gates the main route group, and can clear the session cookie. The server verifies sessions for `/api/auth/me` and protects the product API; future business routes must use the same middleware.
 - No edit/regenerate, void/refund, payment method capture, session/open-close model, or server-backed reports flow is present.
 - Catalog search/category controls are visual only; product query schema includes filters but the controller/service do not parse/use them. Product create schema exists but there is no create route.
 - Settings page, cashier identity, register status, and notification controls are placeholders/static UI.
@@ -78,7 +78,7 @@ Product cards → Zustand cart → receipt panel calculates subtotal and hardcod
 
 ### Login today
 
-The client loads active staff, submits `{ staffId, pin }`, and receives an HTTP-only cookie through the same-origin Next proxy. The main route group checks `/api/auth/me`; its middleware verifies the JWT and reloads the active staff record from SQLite. Logout clears the cookie. Product and future business APIs do not yet require this middleware.
+The client loads active staff, submits `{ staffId, pin }`, and receives an HTTP-only cookie through the same-origin Next proxy. The main route group checks `/api/auth/me`; its middleware verifies the JWT and reloads the active staff record from SQLite. Logout clears the cookie. The product API also requires an active session; future business API routes must mount the same middleware.
 
 ### Desktop today
 
@@ -88,7 +88,7 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 
 1. **Resolve the destructive product migration before v1.** `20261026175721_add_pos_core_models` drops and recreates `products`. It is already applied to the local development database, so do not edit the committed migration in place without an intentional backup and migration rebaseline. Before v1, establish a safe migration history for any database that has real catalog data. The seed script now preserves existing products and order items while inserting missing demo products.
 2. **Settle the money representation and migrate consistently.** Decisions say integer paisa, but Product, Order, OrderItem, Payment and Settings use `Float`; current client prices are PKR decimal numbers/strings. Choose integer minor units end-to-end before order APIs and migrate the database without rounding loss.
-3. **Finish server-side authorization before exposing order/payment writes.** Protect business routes, enforce staff active/role policy, and add rate limiting to PIN login. The client session UI and `/api/auth/me` endpoint are now implemented, but APIs other than `/api/auth/me` are not protected.
+3. **Finish server-side authorization before exposing order/payment writes.** Define role policy and add rate limiting to PIN login. The client session flow and authenticated product API are now implemented; use the same middleware on all future business routes.
 4. **Implement order creation and payment as transactional server operations.** Server must re-read product prices, calculate totals/tax, snapshot item names/prices, assign receipt numbers, record payment/audit events, and enforce idempotency. Never accept authoritative totals or receipt numbers from the client.
 5. **Move Orders and Reports to API-backed state.** Migrate existing local-state behaviors to server queries/mutations, define reconciliation for existing local receipts, and only then remove or downgrade client order persistence.
 6. **Add behavioral coverage around critical paths.** Include auth failures/session behavior, order and payment transitions, replayed idempotency keys, rounding, migration preservation, seed safety and the client/server contract. Existing API tests mock only the health query.
@@ -113,7 +113,7 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 | --- | --- | --- |
 | `GET /api` | Welcome metadata | Implemented |
 | `GET /api/health` | API and database connectivity | Implemented |
-| `GET /api/products` | List all products; no filters applied | Implemented |
+| `GET /api/products` | List all products; no filters applied | Implemented; requires staff session |
 | `GET /api/auth/staff` | List active staff IDs and names for login selection | Implemented |
 | `POST /api/auth/login` | `{ staffId, pin }`, sets `pos_session` cookie | Implemented; add rate limiting |
 | `POST /api/auth/logout` | Clears cookie | Partial; no server token revocation |

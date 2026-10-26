@@ -1,10 +1,12 @@
 import { Router } from "express";
 
 import * as productController from "../controllers/productController";
+import { requireAuth } from "../middleware/require-auth";
 
 const router = Router();
 
-// Check that the API is up and can reach the database
+// Product data is available only to an authenticated staff member.
+router.use(requireAuth);
 router.get("/", productController.getProducts);
 
 export default router;
