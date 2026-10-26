@@ -5,9 +5,11 @@
 
 import { Router } from "express";
 
+import configuration from "../config/env";
+
 import healthRoutes from "./health.routes";
 import productRoutes from "./product.routes";
-import configuration from "../config/env";
+import authRoutes from "./auth.routes";
 
 const router = Router();
 
@@ -22,6 +24,7 @@ router.get("/", (_req, res) => {
 });
 
 // Define API routes here
+router.use("/auth", authRoutes); // Mount auth routes at /auth
 router.use("/health", healthRoutes); // Mount health routes at /health
 router.use("/products", productRoutes); // Mount product routes at /products
 

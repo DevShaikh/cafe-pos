@@ -16,6 +16,7 @@ import AppError from "./utils/app-error";
 import { errorHandler } from "./middleware/error-handler";
 
 import apiRoutes from "./routes";
+import cookieParser from "cookie-parser";
 
 const app: Application = express();
 
@@ -28,6 +29,8 @@ app.use(express.urlencoded({ extended: true })); // Parses incoming requests wit
 
 // Custom Logging Middleware
 app.use(requestLogger);
+
+app.use(cookieParser());
 
 // API Routes
 app.use("/api", apiRoutes);

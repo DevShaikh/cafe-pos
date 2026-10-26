@@ -9,6 +9,7 @@ export const ERROR_CODES = {
   NOT_FOUND: "NOT_FOUND",
   ROUTE_NOT_FOUND: "ROUTE_NOT_FOUND",
   INTERNAL_SERVER_ERROR: "INTERNAL_SERVER_ERROR",
+  UNAUTHORIZED: "UNAUTHORIZED",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
