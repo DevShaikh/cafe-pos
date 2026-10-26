@@ -1,8 +1,5 @@
 import { NextRequest } from "next/server";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
 const SERVER_URL = process.env.SERVER_URL;
 
 async function proxy(request: NextRequest) {
