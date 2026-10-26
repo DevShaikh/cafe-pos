@@ -30,7 +30,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
 
         <div className="mt-3 flex items-center justify-between">
           <span className="text-sm font-bold text-primary">
-            {formatPrice(parseFloat(product.price) * 100)}
+            {formatPrice(parseFloat(product.price))}
           </span>
           <button
             onClick={() =>

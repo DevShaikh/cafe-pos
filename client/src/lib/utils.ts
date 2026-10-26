@@ -8,10 +8,11 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Formats the price of a product in Pakistani Rupees (PKR) currency format.
  */
-export const formatPrice = (amountInRupees: number) => {
-  return new Intl.NumberFormat("en-PK", {
-    style: "currency",
-    currency: "PKR",
+export const formatPrice = (amount: number) => {
+  const formatted = new Intl.NumberFormat("en-PK", {
     minimumFractionDigits: 2,
-  }).format(amountInRupees);
+    maximumFractionDigits: 2,
+  }).format(amount);
+
+  return `PKR ${formatted}`;
 };

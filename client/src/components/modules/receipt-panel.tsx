@@ -11,91 +11,76 @@ import {
 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 import { useCartStore, useCartActions } from "@/store/cart.store";
-import { useOrderStore, useOrderActions } from "@/store/order.store";
+import { useOrderActions } from "@/store/order.store";
 import { formatPrice, cn } from "@/lib/utils";
 import PrintReceipt from "./print-receipt";
 import { Receipt as ReceiptType, OrderType } from "@/types";
 
 const ReceiptPanel = () => {
   const { cartItems } = useCartStore();
-  const { receipts } = useOrderStore();
-
   const { updateQuantity, removeItem, clearCartStore } = useCartActions();
   const { addReceipt } = useOrderActions();
 
   const [orderType, setOrderType] = useState<OrderType>("DINE_IN");
-
-  // State to hold the receipt we want to print right after generating
   const [receiptToPrint, setReceiptToPrint] = useState<ReceiptType | null>(
     null,
   );
   const [isPrinting, setIsPrinting] = useState(false);
 
-  // Ref for the hidden print template
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Set up the print hook
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Receipt-${receiptToPrint?.receiptNumber || "New"}`,
-    onBeforePrint: async () => {
-      setIsPrinting(true);
-    },
-    // When the browser dialog closes (Print or Cancel), turn off loading
     onAfterPrint: () => {
       setIsPrinting(false);
       setReceiptToPrint(null);
     },
-    // If the print fails, turn off loading
     onPrintError: () => {
       setIsPrinting(false);
       setReceiptToPrint(null);
     },
   });
 
-  // Automatically trigger print when a new receipt is set
   useEffect(() => {
     if (receiptToPrint) {
       handlePrint();
-      // Reset after a short delay to allow the print dialog to open
-      setTimeout(() => setReceiptToPrint(null), 1000);
     }
   }, [receiptToPrint, handlePrint]);
 
   const cartArray = Object.values(cartItems);
 
-  const subtotalPaisa = cartArray.reduce((sum, item) => {
-    return sum + Math.round(item.price * 100) * item.quantity;
+  // Standard Math (No Paisa)
+  const subtotal = cartArray.reduce((sum, item) => {
+    return sum + item.price * item.quantity;
   }, 0);
-  const taxPaisa = Math.round(subtotalPaisa * 0.08);
-  const totalPaisa = subtotalPaisa + taxPaisa;
+
+  const tax = subtotal * 0.08;
+  const total = subtotal + tax;
 
   const handleGenerateReceipt = () => {
     if (cartArray.length === 0 || isPrinting) return;
 
     setIsPrinting(true);
 
-    // 1. Add to Zustand store
-    addReceipt({
+    // addReceipt now returns the exact receipt object we just created
+    const latestReceipt = addReceipt({
       items: cartArray,
-      subtotalPaisa,
-      taxPaisa,
-      totalPaisa,
+      subtotal,
+      tax,
+      total,
       orderType,
     });
 
-    // 2. Read the LATEST receipt directly from the store state (fixes stale closure)
-    const latestReceipt = receipts[0];
+    // Use it immediately
     setReceiptToPrint(latestReceipt);
 
-    // 3. Instantly reset UI state
     clearCartStore();
     setOrderType("DINE_IN");
   };
 
   return (
     <div className="flex h-full w-100 shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      {/* Header & Order Type Toggle */}
       <div className="border-b border-border p-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
@@ -109,8 +94,9 @@ const ReceiptPanel = () => {
         <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
           <button
             onClick={() => setOrderType("DINE_IN")}
+            disabled={isPrinting}
             className={cn(
-              "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all",
+              "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all disabled:opacity-50",
               orderType === "DINE_IN"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
@@ -120,8 +106,9 @@ const ReceiptPanel = () => {
           </button>
           <button
             onClick={() => setOrderType("TAKEAWAY")}
+            disabled={isPrinting}
             className={cn(
-              "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all",
+              "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all disabled:opacity-50",
               orderType === "TAKEAWAY"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
@@ -132,23 +119,25 @@ const ReceiptPanel = () => {
         </div>
       </div>
 
-      {/* Cart Items Area */}
       <div className="flex-1 overflow-y-auto p-6">
         {cartArray.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <div className="mb-4 rounded-full bg-muted p-4">
               <Receipt className="h-8 w-8 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium text-foreground">Cart is empty</p>
+            <p className="text-sm font-medium text-foreground">
+              {isPrinting ? "Generating receipt..." : "Cart is empty"}
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Tap items from the menu to add them to the receipt.
+              {isPrinting
+                ? "Please wait for the print dialog."
+                : "Tap items from the menu to add them to the receipt."}
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             {cartArray.map((item) => {
-              const itemPricePaisa = Math.round(item.price * 100);
-              const lineTotalPaisa = itemPricePaisa * item.quantity;
+              const lineTotal = item.price * item.quantity;
               return (
                 <div key={item.id} className="flex gap-3">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
@@ -161,11 +150,11 @@ const ReceiptPanel = () => {
                           {item.name}
                         </h4>
                         <p className="text-xs text-muted-foreground">
-                          {formatPrice(itemPricePaisa)} each
+                          {formatPrice(item.price)} each
                         </p>
                       </div>
                       <p className="text-sm font-bold text-foreground">
-                        {formatPrice(lineTotalPaisa)}
+                        {formatPrice(lineTotal)}
                       </p>
                     </div>
                     <div className="mt-2 flex items-center justify-between">
@@ -206,20 +195,19 @@ const ReceiptPanel = () => {
         )}
       </div>
 
-      {/* Footer / Totals & Checkout Action */}
       <div className="border-t border-border bg-muted/30 p-6">
         <div className="mb-6 space-y-3 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>Subtotal</span>
-            <span>{formatPrice(subtotalPaisa)}</span>
+            <span>{formatPrice(subtotal)}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
             <span>Tax (8%)</span>
-            <span>{formatPrice(taxPaisa)}</span>
+            <span>{formatPrice(tax)}</span>
           </div>
           <div className="flex justify-between border-t border-border pt-3 text-lg font-bold text-foreground">
             <span>Total</span>
-            <span>{formatPrice(totalPaisa)}</span>
+            <span>{formatPrice(total)}</span>
           </div>
         </div>
 
@@ -242,11 +230,6 @@ const ReceiptPanel = () => {
         </button>
       </div>
 
-      {/* 
-        Hidden Print Template. 
-        It stays out of sight until receiptToPrint is set, 
-        then react-to-print grabs it and fires the printer.
-      */}
       {receiptToPrint && (
         <div className="hidden">
           <PrintReceipt ref={printRef} receipt={receiptToPrint} />

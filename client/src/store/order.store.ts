@@ -7,11 +7,11 @@ import { CartItem } from "./cart.store";
 type OrderActions = {
   addReceipt: (receiptData: {
     items: CartItem[];
-    subtotalPaisa: number;
-    taxPaisa: number;
-    totalPaisa: number;
+    subtotal: number;
+    tax: number;
+    total: number;
     orderType: OrderType;
-  }) => void;
+  }) => Receipt;
   markAsPaid: (id: string) => void;
   clearOrders: () => void;
 };
@@ -21,25 +21,30 @@ type OrderStore = OrderStates & { actions: OrderActions };
 const store = create<OrderStore>()(
   devtools(
     persist(
-      (set) => ({
+      (set, get) => ({
         receipts: [],
         nextReceiptNumber: 1001,
         actions: {
-          addReceipt: (data) =>
-            set((state) => {
-              const newReceipt: Receipt = {
-                ...data,
-                id: crypto.randomUUID(),
-                receiptNumber: state.nextReceiptNumber,
-                status: "UNPAID",
-                createdAt: new Date().toISOString(),
-                paidAt: null,
-              };
-              return {
-                receipts: [newReceipt, ...state.receipts],
-                nextReceiptNumber: state.nextReceiptNumber + 1,
-              };
-            }),
+          addReceipt: (data) => {
+            // Read the current receipt number from the state
+            const currentReceiptNumber = get().nextReceiptNumber;
+
+            const newReceipt: Receipt = {
+              ...data,
+              id: crypto.randomUUID(),
+              receiptNumber: currentReceiptNumber,
+              status: "UNPAID",
+              createdAt: new Date().toISOString(),
+              paidAt: null,
+            };
+
+            set((state) => ({
+              receipts: [newReceipt, ...state.receipts],
+              nextReceiptNumber: state.nextReceiptNumber + 1,
+            }));
+
+            return newReceipt;
+          },
           markAsPaid: (id) =>
             set((state) => ({
               receipts: state.receipts.map((r) =>

@@ -11,40 +11,40 @@ The repository currently contains a Next.js client, an Express API, a SQLite pro
 
 ## 2. Current implementation at a glance
 
-| Feature | Status | Current behavior |
-| --- | --- | --- |
-| Main shell | Partial | Sidebar, header, theme toggle, and route shell exist. Cashier/session labels are static. |
-| Catalog | Partial | Product list is fetched from the API and rendered. Search, categories, and filter controls are visual only. Availability is not currently used to hide/disable cards. |
-| Cart | Implemented locally | Add product, increase/decrease quantity, remove item, clear on receipt generation. Not persisted. |
-| Price and tax | Partial | Product API returns prices as decimal strings; cart converts to JS numbers. Receipt math rounds item prices to paisa and applies fixed 8% tax. This does not yet meet integer-only source-of-truth decision. |
-| Receipt generation | Partial | A receipt is saved locally as UNPAID, numbered from 1001, and the cart is cleared. |
-| Printing | Partial / needs validation | `react-to-print` targets an 80mm template and invokes the browser print flow. This is not direct/silent printer access. Current selection reads `receipts[0]` from the component render immediately after a store update, so it can select the previous receipt (or no receipt on first checkout); the print flow should be corrected and verified before operational use. |
-| Orders | Partial | Local receipts are split into unpaid and paid views. A cashier can mark unpaid as paid. Edit/regenerate is not present. |
-| Reports | Placeholder | No session metrics or report generation yet. |
-| Settings | Placeholder | No configurable tax or application settings yet. |
-| Login/auth | Placeholder | `/login` exists, but authentication and access control are not implemented. |
-| Server order persistence | Planned | Express/Prisma currently persist/read products only; orders are not sent to the server. |
+| Feature                  | Status                     | Current behavior                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------ | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Main shell               | Partial                    | Sidebar, header, theme toggle, and route shell exist. Cashier/session labels are static.                                                                                                                                                                                                                                                                                   |
+| Catalog                  | Partial                    | Product list is fetched from the API and rendered. Search, categories, and filter controls are visual only. Availability is not currently used to hide/disable cards.                                                                                                                                                                                                      |
+| Cart                     | Implemented locally        | Add product, increase/decrease quantity, remove item, clear on receipt generation. Not persisted.                                                                                                                                                                                                                                                                          |
+| Price and tax            | Partial                    | Product API returns prices as decimal strings; cart converts to JS numbers. Receipt math rounds item prices to paisa and applies fixed 8% tax. This does not yet meet integer-only source-of-truth decision.                                                                                                                                                               |
+| Receipt generation       | Partial                    | A receipt is saved locally as UNPAID, numbered from 1001, and the cart is cleared.                                                                                                                                                                                                                                                                                         |
+| Printing                 | Partial / needs validation | `react-to-print` targets an 80mm template and invokes the browser print flow. This is not direct/silent printer access. Current selection reads `receipts[0]` from the component render immediately after a store update, so it can select the previous receipt (or no receipt on first checkout); the print flow should be corrected and verified before operational use. |
+| Orders                   | Partial                    | Local receipts are split into unpaid and paid views. A cashier can mark unpaid as paid. Edit/regenerate is not present.                                                                                                                                                                                                                                                    |
+| Reports                  | Placeholder                | No session metrics or report generation yet.                                                                                                                                                                                                                                                                                                                               |
+| Settings                 | Placeholder                | No configurable tax or application settings yet.                                                                                                                                                                                                                                                                                                                           |
+| Login/auth               | Placeholder                | `/login` exists, but authentication and access control are not implemented.                                                                                                                                                                                                                                                                                                |
+| Server order persistence | Planned                    | Express/Prisma currently persist/read products only; orders are not sent to the server.                                                                                                                                                                                                                                                                                    |
 
 ### 2.1 Current route map
 
-| URL | Purpose | Status |
-| --- | --- | --- |
-| `/` | Redirects to `/catalog` through Next middleware | Implemented |
-| `/catalog` | Product catalog and receipt/cart panel | Partial, primary workflow |
-| `/orders` | Unpaid and paid local receipts | Partial |
-| `/reports` | Reporting placeholder | Not implemented |
-| `/settings` | Settings placeholder | Not implemented |
-| `/login` | Static login placeholder | Not implemented as authentication |
+| URL         | Purpose                                         | Status                            |
+| ----------- | ----------------------------------------------- | --------------------------------- |
+| `/`         | Redirects to `/catalog` through Next middleware | Implemented                       |
+| `/catalog`  | Product catalog and receipt/cart panel          | Partial, primary workflow         |
+| `/orders`   | Unpaid and paid local receipts                  | Partial                           |
+| `/reports`  | Reporting placeholder                           | Not implemented                   |
+| `/settings` | Settings placeholder                            | Not implemented                   |
+| `/login`    | Static login placeholder                        | Not implemented as authentication |
 
 The sidebar links to Catalog, Orders, Reports, and Settings. There is no separate `/products` or Menu page.
 
 ### 2.2 Current API
 
-| Method | URL | Behavior |
-| --- | --- | --- |
-| GET | `/` | API welcome response (outside `/api`) |
-| GET | `/api/health` | Health response with database connectivity check |
-| GET | `/api/products` | Returns all product rows; price is converted to a two-decimal string |
+| Method | URL             | Behavior                                                             |
+| ------ | --------------- | -------------------------------------------------------------------- |
+| GET    | `/`             | API welcome response (outside `/api`)                                |
+| GET    | `/api/health`   | Health response with database connectivity check                     |
+| GET    | `/api/products` | Returns all product rows; price is converted to a two-decimal string |
 
 There are no order, payment, report, product-write, or authentication endpoints at this time. The browser uses Axios configured by `NEXT_PUBLIC_API_URL`, and product queries are managed with TanStack Query.
 
@@ -164,15 +164,15 @@ Electron creates a desktop window for the local Next.js UI. It is currently a th
 
 ## 9. Roadmap and completion criteria
 
-| Phase | Scope | Status |
-| --- | --- | --- |
-| Backend foundation | Express, SQLite/Prisma, product seed/API, health endpoint | Implemented for products |
-| A: Shell | Main shell, navigation, theme, route structure | Partial; static session/user labels; login remains placeholder |
-| B: Catalog | API product list, card/grid, functional search/category filtering, unavailable handling | Partial; list is wired, controls and availability behavior are not |
-| C: Checkout | Cart, quantity controls, accurate integer money, tax, create unpaid receipt, print | Partial; local workflow exists; money and print flow need correction/validation |
-| D: Orders | Unpaid/paid views, mark paid, edit/regenerate unpaid receipt | Partial; status transition works locally; editing is absent |
-| E: Reports and quality | Session reports, accessibility/responsive polish, reliable print workflow | Pending / partial print scaffold |
-| F: Persistence and operational features | Server-side orders, configurable tax, authentication and deployment decisions | Planned; not started for orders/auth/settings |
+| Phase                                   | Scope                                                                                   | Status                                                                          |
+| --------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Backend foundation                      | Express, SQLite/Prisma, product seed/API, health endpoint                               | Implemented for products                                                        |
+| A: Shell                                | Main shell, navigation, theme, route structure                                          | Partial; static session/user labels; login remains placeholder                  |
+| B: Catalog                              | API product list, card/grid, functional search/category filtering, unavailable handling | Partial; list is wired, controls and availability behavior are not              |
+| C: Checkout                             | Cart, quantity controls, accurate integer money, tax, create unpaid receipt, print      | Partial; local workflow exists; money and print flow need correction/validation |
+| D: Orders                               | Unpaid/paid views, mark paid, edit/regenerate unpaid receipt                            | Partial; status transition works locally; editing is absent                     |
+| E: Reports and quality                  | Session reports, accessibility/responsive polish, reliable print workflow               | Pending / partial print scaffold                                                |
+| F: Persistence and operational features | Server-side orders, configurable tax, authentication and deployment decisions           | Planned; not started for orders/auth/settings                                   |
 
 Phases describe delivery slices, not claims that every criterion in a slice is complete. Only proceed into new product scope when approved by the user; fix or clarify current workflow defects within the requested task scope.
 
@@ -180,7 +180,7 @@ Phases describe delivery slices, not claims that every criterion in a slice is c
 
 These are static code-review observations from 2026-10-22, not runtime test results:
 
-1. **Catalog price units:** `formatPKR` expects paisa and divides by 100, but `ProductCard` passes `parseFloat(product.price)` where the API string is in rupees. Catalog prices are therefore likely shown at one hundredth of the expected amount. Cart conversion later multiplies by 100, so the same product can appear with a mismatched card and cart price.
+1. **Catalog price units:** `formatPrice` expects paisa and divides by 100, but `ProductCard` passes `parseFloat(product.price)` where the API string is in rupees. Catalog prices are therefore likely shown at one hundredth of the expected amount. Cart conversion later multiplies by 100, so the same product can appear with a mismatched card and cart price.
 2. **New receipt selection:** `ReceiptPanel` calls `addReceipt` and then reads `receipts[0]` from the current React render. Zustand writes synchronously, but that render's selected value is not updated synchronously; the new receipt is not guaranteed to be selected for printing.
 3. **Print lifecycle:** a one-second timeout clears the selected receipt independently of `onAfterPrint`; this can race print preparation. Validate before treating automatic print as reliable.
 4. **Money representation:** cart `price` is a JS number and arithmetic converts it to paisa on each calculation. This conflicts with the integer-paisa source-of-truth decision.

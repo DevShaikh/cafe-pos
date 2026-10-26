@@ -1,7 +1,7 @@
 "use client";
 
 import { useOrderStore, useOrderActions } from "@/store/order.store";
-import { formatPKR } from "@/lib/utils";
+import { formatPrice } from "@/lib/utils";
 import { CheckCircle2, Receipt as ReceiptIcon, Clock } from "lucide-react";
 
 const OrdersPage = () => {
@@ -70,7 +70,7 @@ const OrdersPage = () => {
                   <div className="text-right">
                     <p className="text-sm text-muted-foreground">Cash due</p>
                     <p className="text-lg font-bold text-foreground">
-                      {formatPKR(receipt.totalPaisa)}
+                      {formatPrice(receipt.total)}
                     </p>
                   </div>
                   <button
@@ -132,7 +132,7 @@ const OrdersPage = () => {
                         : "-"}
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-foreground">
-                      {formatPKR(receipt.totalPaisa)}
+                      {formatPrice(receipt.total)}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-semibold text-green-600 dark:text-green-400">

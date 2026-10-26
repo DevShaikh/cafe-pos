@@ -23,13 +23,13 @@ export type Receipt = {
   id: string;
   receiptNumber: number;
   items: CartItem[];
-  subtotalPaisa: number;
-  taxPaisa: number;
-  totalPaisa: number;
+  subtotal: number;
+  tax: number;
+  total: number;
   orderType: OrderType;
   status: "PAID" | "UNPAID";
-  createdAt: string; // ISO date string
-  paidAt: string | null; // ISO date string or null
+  createdAt: string;
+  paidAt: string | null;
 };
 
 export type OrderStates = {
