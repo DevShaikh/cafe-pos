@@ -1,0 +1,80 @@
+enum OrderType {
+    DINE_IN
+    TAKEAWAY
+}
+
+enum OrderStatus {
+    PLACED
+    PAID
+    VOIDED
+}
+
+enum PaymentMethod {
+    CASH
+    CARD_MANUAL
+    EASYPAISA
+    OTHER
+}
+
+model Order {
+    id            String      @id @default(uuid())
+    receiptNumber String      @unique
+    orderType     OrderType
+    status        OrderStatus @default(PLACED)
+
+    subtotal Float
+    tax      Float
+    total    Float
+    taxRate  Float
+
+    createdById String
+    createdBy   Staff  @relation("OrderCreatedBy", fields: [createdById], references: [id])
+
+    paidAt       DateTime?
+    voidedAt     DateTime?
+    voidedReason String?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    items    OrderItem[]
+    payments Payment[]
+    events   OrderEvent[]
+}
+
+model OrderItem {
+    id           String  @id @default(uuid())
+    orderId      String
+    productId    String?
+    nameSnapshot String
+    unitPrice    Float
+    quantity     Int
+    lineTotal    Float
+
+    order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+    product Product? @relation(fields: [productId], references: [id])
+}
+
+model Payment {
+    id          String        @id @default(uuid())
+    orderId     String
+    method      PaymentMethod
+    amount      Float
+    received    Float?
+    change      Float?
+    createdById String
+    createdBy   Staff         @relation(fields: [createdById], references: [id])
+    createdAt   DateTime      @default(now())
+
+    order Order @relation(fields: [orderId], references: [id])
+}
+
+model OrderEvent {
+    id        String   @id @default(uuid())
+    orderId   String
+    eventType String
+    payload   String?
+    createdAt DateTime @default(now())
+
+    order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,19 @@
+enum Role {
+    ADMIN
+    MANAGER
+    CASHIER
+}
+
+model Staff {
+    id        String   @id @default(uuid())
+    name      String
+    pinHash   String
+    role      Role
+    active    Boolean  @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    orders    Order[]    @relation("OrderCreatedBy")
+    payments  Payment[]
+    auditLogs AuditLog[]
+}

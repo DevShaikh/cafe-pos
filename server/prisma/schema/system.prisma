@@ -1,0 +1,27 @@
+model AuditLog {
+    id        String   @id @default(uuid())
+    actorId   String?
+    action    String
+    entity    String
+    entityId  String?
+    before    String?
+    after     String?
+    createdAt DateTime @default(now())
+
+    actor Staff? @relation(fields: [actorId], references: [id])
+}
+
+model Counter {
+    name      String   @id
+    value     Int      @default(1000)
+    updatedAt DateTime @updatedAt
+}
+
+model IdempotencyKey {
+    key          String   @id
+    endpoint     String
+    requestHash  String
+    responseJson String
+    statusCode   Int
+    createdAt    DateTime @default(now())
+}
