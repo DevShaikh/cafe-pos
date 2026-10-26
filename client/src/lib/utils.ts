@@ -16,3 +16,6 @@ export const formatPrice = (amount: number) => {
 
   return `PKR ${formatted}`;
 };
+
+export const formatPaisa = (amountPaisa: number) =>
+  formatPrice(amountPaisa / 100);

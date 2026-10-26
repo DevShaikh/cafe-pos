@@ -1,7 +1,7 @@
 # Cafe POS — Product & UI Specification
 
-**Version:** 2026.10.26
-**Status:** Living product specification. The catalog API is connected. Receipt, payment, and reports flows are still local UI behavior. Login and settings pages are placeholders. See [`backend-plan.md`](backend-plan.md) for repository state and implementation priorities.
+**Version:** 2026.10.27
+**Status:** Living product specification. The catalog API and staff login/session flow are connected. Receipt, payment, and reports flows are still local UI behavior; Settings is a placeholder. See [`backend-plan.md`](backend-plan.md) for repository state and implementation priorities.
 **Audience:** Implementers (human or AI). This file is the single source of truth.
 
 ---
@@ -32,7 +32,7 @@ Cafe POS is a locally running, single-cashier point-of-sale application for a ca
 - No real payment gateway. Payment is always manual.
 - No multi-user login for waiters.
 - No inventory management, stock counts, or product editing screens.
-- Receipt data is held in Zustand `persist` localStorage; there is no order/payment API yet. Electron currently clears that storage at startup.
+- Receipt data is held in Zustand `persist` localStorage; there is no order/payment API yet. Existing decimal-PKR receipts migrate to paisa during hydration. Electron currently clears that storage at startup.
 - The client provides staff selection, PIN login, session checking, and main-view gating. Product and future order/payment API routes still need server-side authentication middleware.
 
 ### 1.3 Core mental model
@@ -54,7 +54,7 @@ Draft cart  →  Generate receipt (prints)  →  Unpaid  →  (optional Edit / R
 | 5   | Product images    | Placeholders only (Coffee icon). Real photos later.                                               |
 | 6   | Layout            | Collapsible left sidebar (shadcn) + right cart on desktop.                                        |
 | 7   | Currency          | PKR. Display with `Intl.NumberFormat("en-PK", { minimumFractionDigits: 2 })`. Prefix `PKR`.       |
-| 8   | Money arithmetic  | **UI:** Standard JavaScript numbers. **Backend:** Integer minor units (paisa) — see Backend Plan. |
+| 8   | Money arithmetic  | Use integer paisa for cart, receipt, and backend calculations. Display PKR with two decimal places. |
 | 9   | Users             | Cashier only. No waiter accounts.                                                                 |
 | 10  | Day / session     | Session-oriented for the current UI phase.                                                        |
 | 11  | Printing          | Receipts print automatically on generation. Uses `react-to-print` with an 80mm thermal template.  |
@@ -136,7 +136,7 @@ type OrderType = "DINE_IN" | "TAKEAWAY";
 type CartItem = {
   id: string;
   name: string;
-  price: number;
+  pricePaisa: number;
   quantity: number;
 };
 
@@ -144,9 +144,10 @@ type Receipt = {
   id: string;
   receiptNumber: number;
   items: CartItem[];
-  subtotal: number;
-  tax: number;
-  total: number;
+  subtotalPaisa: number;
+  taxPaisa: number;
+  totalPaisa: number;
+  taxRateBps: number;
   orderType: OrderType;
   status: "PAID" | "UNPAID";
   createdAt: string;
@@ -157,8 +158,8 @@ type Receipt = {
 Tax formula:
 
 ```text
-tax = Math.round(subtotal * 0.08 * 100) / 100
-total = subtotal + tax
+taxPaisa = Math.round(subtotalPaisa * 800 / 10000)
+totalPaisa = subtotalPaisa + taxPaisa
 ```
 
 ---
@@ -183,7 +184,7 @@ total = subtotal + tax
 ### Phase F — Backend wiring (🔄 In progress)
 
 - See [`docs/backend-plan.md`](backend-plan.md) for the full architecture, schema, API contract, and phased execution plan.
-- Implemented so far: SQLite/Prisma models and migrations, seed script, product list API, and partial server-side login/logout endpoints.
+- Implemented so far: SQLite/Prisma models and migrations using integer paisa, product API, staff login/session flow, and authenticated product access.
 - Still missing: durable order and payment routes, server-side auth enforcement on business APIs, server-owned totals, idempotency, and reports from persisted data.
 
 ---

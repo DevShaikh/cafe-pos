@@ -12,7 +12,7 @@ import {
 import { useReactToPrint } from "react-to-print";
 import { useCartStore, useCartActions } from "@/store/cart.store";
 import { useOrderActions } from "@/store/order.store";
-import { formatPrice, cn } from "@/lib/utils";
+import { formatPaisa, cn } from "@/lib/utils";
 import PrintReceipt from "./print-receipt";
 import { Receipt as ReceiptType, OrderType } from "@/types";
 
@@ -50,12 +50,13 @@ const ReceiptPanel = () => {
 
   const cartArray = Object.values(cartItems);
 
-  const subtotal = cartArray.reduce((sum, item) => {
-    return sum + item.price * item.quantity;
+  const subtotalPaisa = cartArray.reduce((sum, item) => {
+    return sum + item.pricePaisa * item.quantity;
   }, 0);
 
-  const tax = Math.round(subtotal * 0.08 * 100) / 100;
-  const total = subtotal + tax;
+  const taxRateBps = 800;
+  const taxPaisa = Math.round((subtotalPaisa * taxRateBps) / 10000);
+  const totalPaisa = subtotalPaisa + taxPaisa;
 
   const handleGenerateReceipt = () => {
     if (cartArray.length === 0 || isPrinting) return;
@@ -65,9 +66,10 @@ const ReceiptPanel = () => {
     // addReceipt now returns the exact receipt object we just created
     const latestReceipt = addReceipt({
       items: cartArray,
-      subtotal,
-      tax,
-      total,
+      subtotalPaisa,
+      taxPaisa,
+      totalPaisa,
+      taxRateBps,
       orderType,
     });
 
@@ -136,7 +138,7 @@ const ReceiptPanel = () => {
         ) : (
           <div className="space-y-4">
             {cartArray.map((item) => {
-              const lineTotal = item.price * item.quantity;
+              const lineTotalPaisa = item.pricePaisa * item.quantity;
               return (
                 <div key={item.id} className="flex gap-3">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
@@ -149,11 +151,11 @@ const ReceiptPanel = () => {
                           {item.name}
                         </h4>
                         <p className="text-xs text-muted-foreground">
-                          {formatPrice(item.price)} each
+                          {formatPaisa(item.pricePaisa)} each
                         </p>
                       </div>
                       <p className="text-sm font-bold text-foreground">
-                        {formatPrice(lineTotal)}
+                        {formatPaisa(lineTotalPaisa)}
                       </p>
                     </div>
                     <div className="mt-2 flex items-center justify-between">
@@ -198,15 +200,15 @@ const ReceiptPanel = () => {
         <div className="mb-6 space-y-3 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>Subtotal</span>
-            <span>{formatPrice(subtotal)}</span>
+            <span>{formatPaisa(subtotalPaisa)}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
             <span>Tax (8%)</span>
-            <span>{formatPrice(tax)}</span>
+            <span>{formatPaisa(taxPaisa)}</span>
           </div>
           <div className="flex justify-between border-t border-border pt-3 text-lg font-bold text-foreground">
             <span>Total</span>
-            <span>{formatPrice(total)}</span>
+            <span>{formatPaisa(totalPaisa)}</span>
           </div>
         </div>
 

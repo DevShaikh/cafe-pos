@@ -23,9 +23,10 @@ export type Receipt = {
   id: string;
   receiptNumber: number;
   items: CartItem[];
-  subtotal: number;
-  tax: number;
-  total: number;
+  subtotalPaisa: number;
+  taxPaisa: number;
+  totalPaisa: number;
+  taxRateBps: number;
   orderType: OrderType;
   status: "PAID" | "UNPAID";
   createdAt: string;

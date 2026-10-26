@@ -5,7 +5,7 @@ import { devtools } from "zustand/middleware";
 export type CartItem = {
   id: string;
   name: string;
-  price: number;
+  pricePaisa: number;
   quantity: number;
 };
 

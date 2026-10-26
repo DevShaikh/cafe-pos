@@ -1,6 +1,6 @@
 import { Plus, Coffee } from "lucide-react";
 import { useCartActions } from "@/store/cart.store";
-import { formatPrice } from "@/lib/utils";
+import { formatPaisa } from "@/lib/utils";
 import { Product } from "@/lib/schemas/product.schema";
 
 interface ProductCardProps {
@@ -9,8 +9,7 @@ interface ProductCardProps {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const { addItem } = useCartActions();
-  const price = product.pricePaisa / 100;
-  const formattedPrice = formatPrice(price);
+  const formattedPrice = formatPaisa(product.pricePaisa);
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:border-primary/50 hover:shadow-md">
@@ -39,7 +38,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
               addItem({
                 id: product.id,
                 name: product.name,
-                price,
+                pricePaisa: product.pricePaisa,
               })
             }
             className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground shadow-sm transition-all hover:bg-primary hover:text-primary-foreground active:scale-95"

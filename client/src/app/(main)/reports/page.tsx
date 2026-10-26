@@ -1,7 +1,7 @@
 "use client";
 
 import { useOrderStore } from "@/store/order.store";
-import { formatPrice } from "@/lib/utils";
+import { formatPaisa } from "@/lib/utils";
 import { Banknote, Receipt, TrendingUp } from "lucide-react";
 
 const ReportsPage = () => {
@@ -11,9 +11,13 @@ const ReportsPage = () => {
   const paidReceipts = receipts.filter((r) => r.status === "PAID");
 
   // 2. Calculate Metrics
-  const totalCash = paidReceipts.reduce((sum, r) => sum + r.total, 0);
+  const totalCashPaisa = paidReceipts.reduce(
+    (sum, receipt) => sum + receipt.totalPaisa,
+    0,
+  );
   const totalOrders = paidReceipts.length;
-  const averageOrder = totalOrders > 0 ? totalCash / totalOrders : 0;
+  const averageOrderPaisa =
+    totalOrders > 0 ? Math.round(totalCashPaisa / totalOrders) : 0;
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-y-auto pt-6">
@@ -41,7 +45,7 @@ const ReportsPage = () => {
           </div>
           <div className="mt-4">
             <h3 className="text-3xl font-bold text-foreground">
-              {formatPrice(totalCash)}
+              {formatPaisa(totalCashPaisa)}
             </h3>
           </div>
         </div>
@@ -75,7 +79,7 @@ const ReportsPage = () => {
           </div>
           <div className="mt-4">
             <h3 className="text-3xl font-bold text-foreground">
-              {formatPrice(averageOrder)}
+              {formatPaisa(averageOrderPaisa)}
             </h3>
           </div>
         </div>

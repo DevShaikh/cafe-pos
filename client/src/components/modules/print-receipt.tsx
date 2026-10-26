@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import { Receipt } from "@/types";
-import { formatPrice } from "@/lib/utils";
+import { formatPaisa } from "@/lib/utils";
 
 interface PrintReceiptProps {
   receipt: Receipt;
@@ -38,7 +38,7 @@ const PrintReceipt = forwardRef<HTMLDivElement, PrintReceiptProps>(
 
         <div className="mb-2 border-b border-dashed border-black pb-2 text-xs">
           {receipt.items.map((item, index) => {
-            const lineTotal = item.price * item.quantity;
+            const lineTotalPaisa = item.pricePaisa * item.quantity;
             return (
               <div key={index} className="flex justify-between py-1">
                 <div className="flex-1 pr-2">
@@ -46,7 +46,7 @@ const PrintReceipt = forwardRef<HTMLDivElement, PrintReceiptProps>(
                   <span>{item.name}</span>
                 </div>
                 <span className="whitespace-nowrap">
-                  {formatPrice(lineTotal)}
+                  {formatPaisa(lineTotalPaisa)}
                 </span>
               </div>
             );
@@ -56,15 +56,15 @@ const PrintReceipt = forwardRef<HTMLDivElement, PrintReceiptProps>(
         <div className="space-y-1 text-xs">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span>{formatPrice(receipt.subtotal)}</span>
+            <span>{formatPaisa(receipt.subtotalPaisa)}</span>
           </div>
           <div className="flex justify-between">
             <span>Tax (8%)</span>
-            <span>{formatPrice(receipt.tax)}</span>
+            <span>{formatPaisa(receipt.taxPaisa)}</span>
           </div>
           <div className="flex justify-between border-t border-dashed border-black pt-2 text-sm font-bold">
             <span>TOTAL</span>
-            <span>{formatPrice(receipt.total)}</span>
+            <span>{formatPaisa(receipt.totalPaisa)}</span>
           </div>
         </div>
 
