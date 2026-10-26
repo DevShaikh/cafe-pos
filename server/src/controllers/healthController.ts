@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { sendSuccessResponse } from "../utils/responseHandler";
 
-import * as healthService from "../services/healthService";
+import * as healthService from "../services/health.service";
 
 export const checkHealth = async (
   _req: Request,

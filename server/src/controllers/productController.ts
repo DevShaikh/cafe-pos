@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { sendSuccessResponse } from "../utils/responseHandler";
 
-import * as productService from "../services/productService";
+import * as productService from "../services/product.service";
 
 export const getProducts = async (
   _req: Request,
