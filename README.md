@@ -2,7 +2,7 @@
 
 A locally running cafe point-of-sale app for the counter. Built as a learning and portfolio project.
 
-**Status:** Phases A–D are complete. Phase E is in progress (Reports summary cards are done; sales breakdown and print report are pending). The core checkout loop, automatic printing, order management, and collapsible sidebar are fully functional.
+**Status:** Phases A–E (UI/UX) are nearly complete. The core checkout loop, automatic thermal printing, order management, and collapsible sidebar are fully functional. The next major milestone is **Phase F (Backend Wiring)**.
 
 ---
 
@@ -20,7 +20,8 @@ The cashier uses the system to:
 Payment is always manual. The app only records that the cashier confirmed the money was received.
 
 Full product rules, layout, and acceptance criteria live in [`docs/pos-spec.md`](docs/pos-spec.md).  
-Quick locked decisions: [`docs/decisions.md`](docs/decisions.md).
+Quick locked decisions: [`docs/decisions.md`](docs/decisions.md).  
+Backend architecture and execution plan: [`docs/backend-plan.md`](docs/backend-plan.md).
 
 ---
 
@@ -95,19 +96,20 @@ server/
   seeds/         Demo data
   src/           Express app: routes, controllers, services, schemas
 docs/
-  pos-spec.md    Full product & UI specification (source of truth)
-  decisions.md   Locked decisions (quick reference)
+  pos-spec.md       Full product & UI specification (source of truth)
+  decisions.md      Locked decisions (quick reference)
+  backend-plan.md   Backend architecture & phased execution plan
 ```
 
 ---
 
 ## Roadmap
 
-| Phase | Focus                                                                      | Status         |
-| ----- | -------------------------------------------------------------------------- | -------------- |
-| **A** | Application shell, compact sidebar, theme, view switching                  | ✅ Done        |
-| **B** | Product catalog + cart panel shell                                         | ✅ Done        |
-| **C** | Order builder + Generate receipt (unpaid)                                  | ✅ Done        |
-| **D** | Orders view: Mark as paid, paid history                                    | ✅ Done        |
-| **E** | Session reports, print, accessibility & polish                             | 🔄 In Progress |
-| **F** | Backend wiring (persist receipts, NextAuth, real images, configurable tax) | ⏳ Pending     |
+| Phase | Focus                                                       | Status         |
+| ----- | ----------------------------------------------------------- | -------------- |
+| **A** | Application shell, compact sidebar, theme, view switching   | ✅ Done        |
+| **B** | Product catalog + cart panel shell                          | ✅ Done        |
+| **C** | Order builder + Generate receipt (unpaid)                   | ✅ Done        |
+| **D** | Orders view: Mark as paid, paid history                     | ✅ Done        |
+| **E** | Session reports, print, accessibility & polish              | 🔄 In Progress |
+| **F** | **Backend wiring** (database, auth, API, offline hardening) | ⏳ Pending     |

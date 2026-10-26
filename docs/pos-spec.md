@@ -1,7 +1,7 @@
 # Cafe POS — Product & UI Specification
 
-**Version:** 2026.10.26  
-**Status:** Living specification. Phases A-D and automatic printing are complete. Phase E is in progress (Summary Cards done; Sales Breakdown and Print Report pending).  
+**Version:** 2026.10.27  
+**Status:** Living specification. Phases A-D are complete. Phase E is nearly complete. Phase F (backend) is the next major focus.  
 **Audience:** Implementers (human or AI). This file is the single source of truth.
 
 ---
@@ -20,7 +20,7 @@ Cafe POS is a locally running, single-cashier point-of-sale application for a ca
 6. Edit and regenerate an unpaid receipt if the customer changes the order.
 7. When the waiter returns with cash (or EasyPaisa / bank transfer confirmation), mark the receipt as paid.
 8. Review paid order history for the current session.
-9. Generate a session report (Summary Cards implemented; breakdown and print pending).
+9. Generate a session report.
 10. Open Settings, account actions, and notifications.
 
 ### 1.2 Explicit non-goals (current phase)
@@ -45,19 +45,19 @@ Draft cart  →  Generate receipt (prints)  →  Unpaid  →  (optional Edit / R
 
 ## 2. Confirmed product decisions
 
-| #   | Topic             | Decision                                                                                         |
-| --- | ----------------- | ------------------------------------------------------------------------------------------------ |
-| 1   | Payment lifecycle | Unpaid → Mark as paid. Cashier confirms cash / EasyPaisa / transfer outside the system.          |
-| 2   | Order type        | Dine in / Takeaway is only a label stored on the receipt. No different workflows.                |
-| 3   | Tax               | Hard-coded percentage for now (default 8 %), rounded to 2 decimals.                              |
-| 4   | Receipt label     | Dropped. No free-text “table / customer name” field.                                             |
-| 5   | Product images    | Placeholders only (Coffee icon). Real photos later.                                              |
-| 6   | Layout            | Collapsible left sidebar (shadcn) + right cart on desktop.                                       |
-| 7   | Currency          | PKR. Display with `Intl.NumberFormat("en-PK", { minimumFractionDigits: 2 })`. Prefix `PKR`.      |
-| 8   | Money arithmetic  | Standard JavaScript numbers. No Paisa integers. Tax is rounded at calculation.                   |
-| 9   | Users             | Cashier only. No waiter accounts.                                                                |
-| 10  | Day / session     | Session-oriented for the current UI phase.                                                       |
-| 11  | Printing          | Receipts print automatically on generation. Uses `react-to-print` with an 80mm thermal template. |
+| #   | Topic             | Decision                                                                                          |
+| --- | ----------------- | ------------------------------------------------------------------------------------------------- |
+| 1   | Payment lifecycle | Unpaid → Mark as paid. Cashier confirms cash / EasyPaisa / transfer outside the system.           |
+| 2   | Order type        | Dine in / Takeaway is only a label stored on the receipt. No different workflows.                 |
+| 3   | Tax               | Hard-coded percentage for now (default 8 %), rounded to 2 decimals.                               |
+| 4   | Receipt label     | Dropped. No free-text “table / customer name” field.                                              |
+| 5   | Product images    | Placeholders only (Coffee icon). Real photos later.                                               |
+| 6   | Layout            | Collapsible left sidebar (shadcn) + right cart on desktop.                                        |
+| 7   | Currency          | PKR. Display with `Intl.NumberFormat("en-PK", { minimumFractionDigits: 2 })`. Prefix `PKR`.       |
+| 8   | Money arithmetic  | **UI:** Standard JavaScript numbers. **Backend:** Integer minor units (paisa) — see Backend Plan. |
+| 9   | Users             | Cashier only. No waiter accounts.                                                                 |
+| 10  | Day / session     | Session-oriented for the current UI phase.                                                        |
+| 11  | Printing          | Receipts print automatically on generation. Uses `react-to-print` with an 80mm thermal template.  |
 
 ---
 
@@ -182,9 +182,12 @@ total = subtotal + tax
 
 ### Phase F — Backend wiring (⏳ Pending)
 
+- See [`docs/backend-plan.md`](backend-plan.md) for the full architecture, schema, API contract, and phased execution plan.
+
 ---
 
 ## 10. Change log
 
 - 2026-10-21: Complete rewrite. Absorbed original domain insights, new UI/UX flow, all confirmed decisions, and speed-first layout refinements.
 - 2026-10-26: Updated status to reflect Phase A-D completion, integrated automatic thermal printing flow, collapsible shadcn sidebar, fixed receipt selection, and Reports Summary Cards.
+- 2026-10-27: Added reference to the Backend Plan and clarified Phase F as the next focus.
