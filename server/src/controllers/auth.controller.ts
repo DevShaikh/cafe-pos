@@ -16,7 +16,7 @@ export const login = async (
     if (!parsed.success) {
       throw new AppError(
         400,
-        ERROR_CODES.UNAUTHORIZED,
+        ERROR_CODES.VALIDATION_ERROR,
         parsed.error.issues[0]?.message ?? "Invalid input",
       );
     }

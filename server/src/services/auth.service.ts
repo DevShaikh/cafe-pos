@@ -4,8 +4,7 @@ import { prismaClient } from "../lib/prismaClient";
 import { ERROR_CODES } from "../constants/error-codes";
 import AppError from "../utils/app-error";
 import { LoginInput } from "../schemas/auth";
-
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
+import configuration from "../config/env";
 
 export const login = async (data: LoginInput) => {
   const staff = await prismaClient.staff.findUnique({
@@ -25,9 +24,17 @@ export const login = async (data: LoginInput) => {
     throw new AppError(401, ERROR_CODES.UNAUTHORIZED, "Invalid credentials");
   }
 
+  if (!configuration.jwtSecret) {
+    throw new AppError(
+      500,
+      ERROR_CODES.INTERNAL_SERVER_ERROR,
+      "Authentication is not configured on this server.",
+    );
+  }
+
   const token = jwt.sign(
     { id: staff.id, role: staff.role, name: staff.name },
-    JWT_SECRET,
+    configuration.jwtSecret,
     { expiresIn: "12h" },
   );
 

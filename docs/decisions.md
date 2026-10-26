@@ -7,6 +7,7 @@ Quick reference for core architectural and business logic decisions.
 | **Currency (UI)**           | PKR, displayed as `PKR 1,200.00`. Standard JavaScript numbers.                                                |
 | **Currency (Backend target)** | Store and transport all money as integer minor units (paisa). 1 PKR = 100 paisa. **Not implemented:** current Prisma models use `Float` and product API returns decimal strings. |
 | **Database (v1)**            | SQLite for the local, single-cashier deployment. Vercel configuration was exploratory and is not a production hosting commitment. Revisit PostgreSQL if v1 becomes hosted/shared across terminals. |
+| **JWT Secret**                | `JWT_SECRET` must be at least 32 characters and is required in production. There is no hardcoded signing fallback; development login needs a configured secret. |
 | **Print Workflow**          | Receipts are printed immediately upon generation (before payment). Matches real counter workflow.             |
 | **Print Library**           | `react-to-print` with a custom 80mm thermal template.                                                         |
 | **Order State (Current)**   | Zustand `persist` in browser localStorage. Electron currently clears localStorage on startup, so this is not durable in desktop mode. |

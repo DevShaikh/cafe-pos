@@ -60,7 +60,10 @@ Create `server/.env` (it is ignored by Git):
 NODE_ENV=development
 PORT=3000
 CLIENT_ORIGIN=http://localhost:3001
+JWT_SECRET=<paste-a-random-secret-of-at-least-32-characters>
 ```
+
+Generate a local secret with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and replace the placeholder. Production startup requires `JWT_SECRET`; development can start without it, but login will return a configuration error until it is set.
 
 ### 3. Configure the client API proxy
 

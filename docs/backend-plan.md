@@ -36,7 +36,7 @@ scripts/                 Package version synchronization helper
 - UI uses Tailwind utility classes, semantic CSS variables, and shadcn/Radix primitives. Several generated UI wrappers retain semicolon-free formatting; follow the touched file's local style.
 - Do not treat declarations in this guide or `decisions.md` as implemented behavior unless the verified state below says so.
 
-## Verified state (reviewed 2026-10-26)
+## Verified state (reviewed 2026-10-27)
 
 ### Deployment assumption
 
@@ -50,7 +50,7 @@ V1 is a local, single-cashier application, so SQLite remains the selected databa
 - Receipt generation, 8% tax, receipt numbering, paid/unpaid state, reports, and printing are client-side. Receipts persist in browser localStorage via Zustand.
 - Express mounts `/api`, Helmet, single-origin CORS, JSON/urlencoded parsers, request logging, cookie parsing, JSON 404s, and a global error handler.
 - API routes currently include `GET /api`, `GET /api/health`, `GET /api/products`, `POST /api/auth/login`, and `POST /api/auth/logout`.
-- Login finds active staff by UUID, checks a bcrypt PIN, signs a 12-hour JWT, writes an audit log, and sets an HTTP-only `pos_session` cookie. Logout clears that cookie.
+- Login finds active staff by UUID and checks a bcrypt PIN. With a configured `JWT_SECRET`, it signs a 12-hour JWT, writes an audit log, and sets an HTTP-only `pos_session` cookie. Production startup requires the secret; development login fails clearly until one is configured. Logout clears the cookie.
 - Prisma has Product, Order, OrderItem, Payment, Settings, Staff, AuditLog, Counter and IdempotencyKey models. A default admin is seeded with PIN `1234` if no admin exists.
 - The seed script inserts demo products that are missing by name and preserves existing catalog rows and order items.
 - The server test file covers health success/failure, Helmet, CORS, unknown routes, malformed JSON and unexpected error masking. It does not cover product behavior, auth, order/payment behavior, or migration/data preservation.
@@ -88,7 +88,7 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 
 1. **Resolve the destructive product migration before v1.** `20261026175721_add_pos_core_models` drops and recreates `products`. It is already applied to the local development database, so do not edit the committed migration in place without an intentional backup and migration rebaseline. Before v1, establish a safe migration history for any database that has real catalog data. The seed script now preserves existing products and order items while inserting missing demo products.
 2. **Settle the money representation and migrate consistently.** Decisions say integer paisa, but Product, Order, OrderItem, Payment and Settings use `Float`; current client prices are PKR decimal numbers/strings. Choose integer minor units end-to-end before order APIs and migrate the database without rounding loss.
-3. **Finish authentication before exposing order/payment writes.** Validate `JWT_SECRET` from environment (no fallback secret), map malformed login input to a validation 400, add cookie/session verification and a current-user endpoint, protect business routes, and enforce staff active/role policy. Add a client login/logout/session flow before relying on the current login route; there is currently no endpoint for the client to discover a staff UUID for the login payload.
+3. **Finish authentication before exposing order/payment writes.** Add cookie/session verification and a current-user endpoint, protect business routes, and enforce staff active/role policy. Add a client login/logout/session flow before relying on the current login route; there is currently no endpoint for the client to discover a staff UUID for the login payload.
 4. **Implement order creation and payment as transactional server operations.** Server must re-read product prices, calculate totals/tax, snapshot item names/prices, assign receipt numbers, record payment/audit events, and enforce idempotency. Never accept authoritative totals or receipt numbers from the client.
 5. **Move Orders and Reports to API-backed state.** Migrate existing local-state behaviors to server queries/mutations, define reconciliation for existing local receipts, and only then remove or downgrade client order persistence.
 6. **Add behavioral coverage around critical paths.** Include auth failures/session behavior, order and payment transitions, replayed idempotency keys, rounding, migration preservation, seed safety and the client/server contract. Existing API tests mock only the health query.
