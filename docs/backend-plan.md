@@ -48,7 +48,8 @@ V1 is a local, single-cashier application, so SQLite remains the selected databa
 - Catalog fetches products through a TanStack Query hook and the browser calls the Next catch-all `/api/*` proxy, which forwards to Express using `SERVER_URL`.
 - Product list API reads Prisma products and returns integer `pricePaisa` values. Product cards convert to PKR for display while the Zustand cart stores integer paisa.
 - The server now supports transactional order creation and manual payment recording with integer-paisa totals, product snapshots, configured tax basis points, receipt counters, audit events, and idempotency keys. These APIs require an authenticated staff session.
-- Receipt generation, 8% tax, receipt numbering, paid/unpaid state, reports, and printing in the current UI remain client-side. Cart and local receipt calculations use integer paisa; Zustand migrates older decimal-PKR receipts in browser localStorage.
+- New checkout submissions use the server to calculate totals, assign receipt numbers, save orders, and return the receipt data used for printing. Orders and Reports combine server data with existing device-saved receipts; legacy local receipts remain local and are never recreated using today's product prices.
+- Server order queries currently return at most 200 recent orders. Reports therefore do not yet cover full server history when more than 200 orders exist.
 - Express mounts `/api`, Helmet, single-origin CORS, JSON/urlencoded parsers, request logging, cookie parsing, JSON 404s, and a global error handler.
 - API routes include `GET /api`, `GET /api/health`, `GET /api/products`, auth staff/login/logout/me routes, and authenticated order list/create/read/payment routes.
 - Login finds active staff by UUID and checks a bcrypt PIN. With a configured `JWT_SECRET`, it signs a 12-hour JWT, writes an audit log, and sets an HTTP-only `pos_session` cookie. Production startup requires the secret; development login fails clearly until one is configured. Logout clears the cookie.
@@ -58,9 +59,9 @@ V1 is a local, single-cashier application, so SQLite remains the selected databa
 
 ### Not implemented (despite target decisions or page names)
 
-- Orders page and reports still read the local Zustand receipt store; the new server order/payment API is not yet wired into those screens.
+- Existing local receipts remain in the Zustand store; new server orders are also shown in Orders and Reports. Legacy local payment actions still update only local state.
 - The client has staff selection/PIN login, checks `/api/auth/me`, gates the main route group, and can clear the session cookie. The server verifies sessions for `/api/auth/me`, products, and orders; role based authorization remains undefined.
-- No edit/regenerate, void/refund, payment method capture, session/open-close model, or server-backed reports flow is present.
+- No edit/regenerate, void/refund, session/open-close model, or dedicated reports endpoint is present. Reports currently summarize the latest server orders plus local historical receipts in the client.
 - Catalog search/category controls are visual only; product query schema includes filters but the controller/service do not parse/use them. Product create schema exists but there is no create route.
 - Settings page, cashier identity, register status, and notification controls are placeholders/static UI.
 - Product prices and order/payment monetary columns use integer paisa in the Prisma schema; tax rates use basis points. The product API sends `pricePaisa` and order APIs return integer-paisa totals.
@@ -75,11 +76,11 @@ V1 is a local, single-cashier application, so SQLite remains the selected databa
 
 ### Receipt, payment and report today
 
-Product cards → Zustand cart stores `pricePaisa` → receipt panel calculates subtotal and hardcoded 800 bps tax in integer paisa → Generate adds a receipt with a local sequential number to Zustand persist → print dialog runs through `react-to-print` → cart clears. Orders page marks a local receipt paid; Reports page totals local paid receipts. The server/database is not involved in these three flows.
+Product cards → Zustand cart stores `pricePaisa` → receipt panel sends product IDs, quantities, and order type with an idempotency key → authenticated Express route re-reads products/settings, calculates integer-paisa totals, assigns a receipt number, and stores order/items/events/audit row transactionally → server response supplies receipt values to the print dialog → cart clears. Orders and Reports show old local receipts alongside server orders (latest 200); new orders are paid through the API using a selected manual payment method. Old local receipts keep their local payment behavior.
 
 ### Login today
 
-The client loads active staff, submits `{ staffId, pin }`, and receives an HTTP-only cookie through the same-origin Next proxy. The main route group checks `/api/auth/me`; its middleware verifies the JWT and reloads the active staff record from SQLite. Logout clears the cookie. The product API also requires an active session; future business API routes must mount the same middleware.
+The client loads active staff, submits `{ staffId, pin }`, and receives an HTTP-only cookie through the same-origin Next proxy. The main route group checks `/api/auth/me`; its middleware verifies the JWT and reloads the active staff record from SQLite. Logout clears the cookie. Product and order APIs also require an active session; future business routes must apply the same middleware.
 
 ### Desktop today
 
@@ -88,10 +89,10 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 ## Fix first: prioritized findings
 
 1. **Resolve the destructive product migration before v1.** `20261026175721_add_pos_core_models` drops and recreates `products`. It is already applied to the local development database, so do not edit the committed migration in place without an intentional backup and migration rebaseline. Before v1, establish a safe migration history for any database that has real catalog data. The seed script now preserves existing products and order items while inserting missing demo products.
-2. **Move receipt and payment ownership to the server.** Transactional order/payment APIs now calculate server totals. Make the Orders UI use these APIs and reconcile existing local receipts before changing persistence.
+2. **Move receipt and payment ownership to the server.** Transactional order/payment APIs and the new-order UI flow now use server totals. Preserve existing local receipts while defining a deliberate archive/import path.
 3. **Finish server-side authorization.** Define role policy for business operations and add rate limiting to PIN login. Current product and order routes require an active staff session.
 4. **Implement order creation and payment as transactional server operations.** Implemented for create and mark-paid flows. Keep server authoritative for prices, totals/tax, item snapshots, receipt numbers, payment events and idempotency; add coverage before relying on the flows in production.
-5. **Move Orders and Reports to API-backed state.** Migrate existing local-state behaviors to server queries/mutations, define reconciliation for existing local receipts, and only then remove or downgrade client order persistence.
+5. **Complete Orders and Reports API-backed behavior.** New server orders and manual payments are wired into the client while existing local receipts remain visible and unchanged. Add history pagination/session filtering and decide how to archive local receipt history before changing its persistence.
 6. **Add behavioral coverage around critical paths.** Include auth failures/session behavior, order and payment transitions, replayed idempotency keys, rounding, migration preservation, seed safety and the client/server contract. Existing API tests mock only the health query.
 7. **Keep client API configuration aligned.** The Next proxy reads `SERVER_URL`; README and `client/.env.example` now document that setting. Revisit this when the API proxy or local service ports change.
 8. **Finish product and v1 operational flows.** Wire search/category filters and availability, edit/void rules, settings-driven tax/receipt details, and reports breakdown/printing according to the agreed scope.
@@ -100,11 +101,11 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 ## Recommended implementation sequence
 
 1. Resolve the migration and seed data-safety issues; establish an explicit backup/reset policy.
-2. Implement transactional order/payment APIs using integer paisa (done); next reconcile local receipts, then replace local order state with API-backed queries and mutations.
+2. Implement transactional order/payment APIs using integer paisa and wire new checkout/Orders/Reports flows (done); keep historical local receipts visible and plan an archive/import path before removing local persistence.
 3. Define role policy, add login rate limiting, and add API contract coverage for auth and order/payment behavior.
 4. Add product filters and API contract tests if needed by the checkout flow.
 5. Add edit/void order operations and the remaining payment tender details as v1 scope requires.
-6. Switch client receipt/orders state to server queries and mutations; retain a deliberate offline/retry strategy for the single-counter deployment.
+6. Wire new checkout, Orders, and Reports to server queries/mutations (basic flows done); define deliberate offline behavior, history pagination, and local receipt archival for the single-counter deployment.
 7. Build reports from persisted data, then finish settings and v1 web boot behavior.
 8. When v1 is ready to boot, address Electron startup, storage preservation, and packaging as a dedicated milestone.
 

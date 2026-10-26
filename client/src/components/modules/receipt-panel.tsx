@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import axios from "axios";
 import {
   Receipt,
   CreditCard,
@@ -11,21 +12,55 @@ import {
 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 import { useCartStore, useCartActions } from "@/store/cart.store";
-import { useOrderActions } from "@/store/order.store";
 import { formatPaisa, cn } from "@/lib/utils";
+import { useCreateOrder } from "@/lib/hooks/order.hooks";
+import { toReceipt } from "@/lib/services/order.service";
 import PrintReceipt from "./print-receipt";
 import { Receipt as ReceiptType, OrderType } from "@/types";
+
+const PENDING_ORDER_KEY = "cafe-pos-pending-order";
+
+function getIdempotencyKey(signature: string) {
+  try {
+    const saved = sessionStorage.getItem(PENDING_ORDER_KEY);
+    if (saved) {
+      const pending = JSON.parse(saved) as { signature?: string; key?: string };
+      if (pending.signature === signature && pending.key) return pending.key;
+    }
+    const key = crypto.randomUUID();
+    sessionStorage.setItem(
+      PENDING_ORDER_KEY,
+      JSON.stringify({ signature, key }),
+    );
+    return key;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+function clearPendingOrderKey() {
+  try {
+    sessionStorage.removeItem(PENDING_ORDER_KEY);
+  } catch {
+    // The in-memory key still protects retries during this page session.
+  }
+}
 
 const ReceiptPanel = () => {
   const { cartItems } = useCartStore();
   const { updateQuantity, removeItem, clearCartStore } = useCartActions();
-  const { addReceipt } = useOrderActions();
+  const createOrderMutation = useCreateOrder();
 
   const [orderType, setOrderType] = useState<OrderType>("DINE_IN");
   const [receiptToPrint, setReceiptToPrint] = useState<ReceiptType | null>(
     null,
   );
   const [isPrinting, setIsPrinting] = useState(false);
+  const [pendingInput, setPendingInput] = useState<{
+    orderType: OrderType;
+    items: { productId: string; quantity: number }[];
+  } | null>(null);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -58,27 +93,49 @@ const ReceiptPanel = () => {
   const taxPaisa = Math.round((subtotalPaisa * taxRateBps) / 10000);
   const totalPaisa = subtotalPaisa + taxPaisa;
 
-  const handleGenerateReceipt = () => {
-    if (cartArray.length === 0 || isPrinting) return;
+  const handleGenerateReceipt = async () => {
+    if ((!pendingInput && cartArray.length === 0) || isPrinting) return;
 
     setIsPrinting(true);
-
-    // addReceipt now returns the exact receipt object we just created
-    const latestReceipt = addReceipt({
-      items: cartArray,
-      subtotalPaisa,
-      taxPaisa,
-      totalPaisa,
-      taxRateBps,
-      orderType,
-    });
-
-    // Use it immediately
-    setReceiptToPrint(latestReceipt);
-
-    clearCartStore();
-    setOrderType("DINE_IN");
+    try {
+      const input = pendingInput ?? {
+        orderType,
+        items: cartArray.map(({ id, quantity }) => ({
+          productId: id,
+          quantity,
+        })),
+      };
+      setPendingInput(input);
+      const signature = JSON.stringify(input);
+      const key = pendingKey ?? getIdempotencyKey(signature);
+      setPendingKey(key);
+      const order = await createOrderMutation.mutateAsync({
+        input,
+        idempotencyKey: key,
+      });
+      clearPendingOrderKey();
+      setPendingInput(null);
+      setPendingKey(null);
+      setReceiptToPrint(toReceipt(order));
+      clearCartStore();
+      setOrderType("DINE_IN");
+    } catch (error) {
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      if (status !== undefined && status < 500) {
+        clearPendingOrderKey();
+        setPendingInput(null);
+        setPendingKey(null);
+      }
+    } finally {
+      setIsPrinting(false);
+    }
   };
+
+  const checkoutError = createOrderMutation.error
+    ? pendingInput
+      ? "The server may have received this order. Retry without changing the cart to safely confirm it."
+      : "Order was not created. Review the cart and try again."
+    : null;
 
   return (
     <div className="flex h-full w-100 shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
@@ -95,7 +152,7 @@ const ReceiptPanel = () => {
         <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
           <button
             onClick={() => setOrderType("DINE_IN")}
-            disabled={isPrinting}
+            disabled={isPrinting || !!pendingInput}
             className={cn(
               "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all disabled:opacity-50",
               orderType === "DINE_IN"
@@ -107,7 +164,7 @@ const ReceiptPanel = () => {
           </button>
           <button
             onClick={() => setOrderType("TAKEAWAY")}
-            disabled={isPrinting}
+            disabled={isPrinting || !!pendingInput}
             className={cn(
               "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all disabled:opacity-50",
               orderType === "TAKEAWAY"
@@ -162,9 +219,11 @@ const ReceiptPanel = () => {
                       <div className="flex items-center gap-1 rounded-lg border border-border p-1">
                         <button
                           onClick={() => {
+                            if (pendingInput) return;
                             if (item.quantity === 1) removeItem(item.id);
                             else updateQuantity(item.id, item.quantity - 1);
                           }}
+                          disabled={!!pendingInput}
                           className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                         >
                           <Minus size={14} />
@@ -176,6 +235,7 @@ const ReceiptPanel = () => {
                           onClick={() =>
                             updateQuantity(item.id, item.quantity + 1)
                           }
+                          disabled={!!pendingInput}
                           className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                         >
                           <Plus size={14} />
@@ -183,6 +243,7 @@ const ReceiptPanel = () => {
                       </div>
                       <button
                         onClick={() => removeItem(item.id)}
+                        disabled={!!pendingInput}
                         className="text-muted-foreground transition-colors hover:text-destructive"
                       >
                         <Trash2 size={16} />
@@ -214,21 +275,26 @@ const ReceiptPanel = () => {
 
         <button
           onClick={handleGenerateReceipt}
-          disabled={cartArray.length === 0 || isPrinting}
+          disabled={(cartArray.length === 0 && !pendingInput) || isPrinting}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-4 text-base font-semibold text-primary-foreground shadow-sm transition-transform active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
         >
           {isPrinting ? (
             <>
               <Loader2 size={20} className="animate-spin" />
-              Printing...
+              Saving order...
             </>
           ) : (
             <>
               <CreditCard size={20} />
-              Generate & Print receipt
+              {pendingInput ? "Retry order" : "Generate & Print receipt"}
             </>
           )}
         </button>
+        {checkoutError && (
+          <p role="alert" className="mt-3 text-sm text-destructive">
+            {checkoutError}
+          </p>
+        )}
       </div>
 
       {receiptToPrint && (

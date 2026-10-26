@@ -1,7 +1,7 @@
 # Cafe POS — Product & UI Specification
 
 **Version:** 2026.10.27
-**Status:** Living product specification. The catalog API and staff login/session flow are connected. Receipt, payment, and reports flows are still local UI behavior; Settings is a placeholder. See [`backend-plan.md`](backend-plan.md) for repository state and implementation priorities.
+**Status:** Living product specification. Catalog, staff login/session, server-backed checkout, Orders, and summary Reports are connected. Existing receipts remain on-device; Settings is a placeholder. See [`backend-plan.md`](backend-plan.md) for repository state and implementation priorities.
 **Audience:** Implementers (human or AI). This file is the single source of truth.
 
 ---
@@ -32,8 +32,8 @@ Cafe POS is a locally running, single-cashier point-of-sale application for a ca
 - No real payment gateway. Payment is always manual.
 - No multi-user login for waiters.
 - No inventory management, stock counts, or product editing screens.
-- Receipt data is held in Zustand `persist` localStorage; there is no order/payment API yet. Existing decimal-PKR receipts migrate to paisa during hydration. Electron currently clears that storage at startup.
-- The client provides staff selection, PIN login, session checking, and main-view gating. Product and future order/payment API routes still need server-side authentication middleware.
+- Historical receipt data remains in Zustand `persist` localStorage; existing decimal-PKR receipts migrate to paisa during hydration. New orders are stored by the server. Electron currently clears browser storage at startup.
+- The client provides staff selection, PIN login, session checking, and main-view gating. Product and order/payment API routes require an active server-side staff session.
 
 ### 1.3 Core mental model
 
@@ -120,9 +120,9 @@ Primary views (Next.js App Router):
 1. Cashier adds items and adjusts quantities.
 2. Selects Dine in or Takeaway.
 3. Clicks “Generate & Print receipt”.
-4. System creates an unpaid receipt, triggers 80mm print job.
-5. Receipt goes to Orders list, cart clears, search focuses.
-6. Cashier marks as paid when money is received.
+4. Client sends product IDs, quantities, and order type; server recalculates prices/tax, creates the unpaid order, and returns its receipt number and totals.
+5. Client prints the server receipt and clears the cart. A pending request keeps its idempotency key and cart locked so retrying cannot create a duplicate.
+6. Orders displays server orders alongside historical receipts saved on this device. Cashier selects a manual payment method and records payment on the server for new orders.
 
 ---
 
@@ -184,8 +184,8 @@ totalPaisa = subtotalPaisa + taxPaisa
 ### Phase F — Backend wiring (🔄 In progress)
 
 - See [`docs/backend-plan.md`](backend-plan.md) for the full architecture, schema, API contract, and phased execution plan.
-- Implemented so far: SQLite/Prisma models and migrations using integer paisa, product API, staff login/session flow, and authenticated product access.
-- Still missing: durable order and payment routes, server-side auth enforcement on business APIs, server-owned totals, idempotency, and reports from persisted data.
+- Implemented so far: SQLite/Prisma models and migrations using integer paisa, product API, staff login/session flow, authenticated product/order APIs, server-owned order totals, idempotent transactional checkout/payment, and client wiring for new orders.
+- Still missing: report pagination/session filters, deliberate offline queue behavior, and an archive/migration plan for device-only receipts. Existing local receipts remain visible, with local payment state.
 
 ---
 
@@ -194,3 +194,4 @@ totalPaisa = subtotalPaisa + taxPaisa
 - 2026-10-21: Complete rewrite. Absorbed original domain insights, new UI/UX flow, all confirmed decisions, and speed-first layout refinements.
 - 2026-10-26: Updated status to reflect Phase A-D completion, integrated automatic thermal printing flow, collapsible shadcn sidebar, fixed receipt selection, and Reports Summary Cards.
 - 2026-10-26: Added the repository guide reference and clarified Phase F implementation status.
+- 2026-10-27: Connected checkout, Orders, and summary Reports to server orders while preserving historical device receipts.

@@ -1,14 +1,21 @@
 "use client";
 
 import { useOrderStore } from "@/store/order.store";
+import { useOrders } from "@/lib/hooks/order.hooks";
+import { toReceipt } from "@/lib/services/order.service";
 import { formatPaisa } from "@/lib/utils";
 import { Banknote, Receipt, TrendingUp } from "lucide-react";
 
 const ReportsPage = () => {
   const { receipts } = useOrderStore();
+  const ordersQuery = useOrders();
+  const allReceipts = [
+    ...receipts,
+    ...(ordersQuery.data ?? []).map(toReceipt),
+  ];
 
   // 1. Filter for PAID receipts only
-  const paidReceipts = receipts.filter((r) => r.status === "PAID");
+  const paidReceipts = allReceipts.filter((r) => r.status === "PAID");
 
   // 2. Calculate Metrics
   const totalCashPaisa = paidReceipts.reduce(
@@ -24,12 +31,18 @@ const ReportsPage = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Session Reports
+          Sales Reports
         </h1>
         <p className="text-sm text-muted-foreground">
-          A quick view of this session&apos;s completed sales.
+          Summary of completed sales, including older receipts saved on this device.
         </p>
       </div>
+
+      {ordersQuery.isError && (
+        <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+          Server sales could not be loaded, so totals include only device-saved receipts.
+        </p>
+      )}
 
       {/* Summary Cards Grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -37,7 +50,7 @@ const ReportsPage = () => {
         <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-muted-foreground">
-              Cash Collected
+              Payments Collected
             </p>
             <div className="rounded-full bg-primary/10 p-2 text-primary">
               <Banknote size={20} />

@@ -10,6 +10,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useOrderStore } from "@/store/order.store";
+import { useOrders } from "@/lib/hooks/order.hooks";
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent,
@@ -32,7 +33,10 @@ const primaryNav = [
 const Sidebar = () => {
   const pathname = usePathname();
   const { receipts } = useOrderStore();
-  const unpaidCount = receipts.filter((r) => r.status === "UNPAID").length;
+  const ordersQuery = useOrders();
+  const unpaidCount =
+    receipts.filter((r) => r.status === "UNPAID").length +
+    (ordersQuery.data ?? []).filter((order) => order.status === "PLACED").length;
 
   return (
     <ShadcnSidebar
