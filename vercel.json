@@ -15,7 +15,8 @@
     },
     "server": {
       "root": "server",
-      "framework": "express"
+      "framework": "express",
+      "installCommand": "npm install --production=false"
     }
   },
   "rewrites": [
