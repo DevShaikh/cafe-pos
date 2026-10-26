@@ -38,6 +38,10 @@ scripts/                 Package version synchronization helper
 
 ## Verified state (reviewed 2026-10-26)
 
+### Deployment assumption
+
+V1 is a local, single-cashier application, so SQLite remains the selected database. The checked-in Vercel configuration was exploratory and does not make Vercel a production target. Reconsider PostgreSQL if the product changes to a hosted service shared by multiple terminals. Keep the Electron boot work deferred until v1 is ready to boot.
+
 ### Implemented
 
 - Next.js pages exist for catalog, orders, reports, settings, and login. The root URL redirects to `/catalog`.
@@ -121,7 +125,7 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 
 - Server reads `server/.env` (or process environment): `NODE_ENV`, `PORT`, `DATABASE_URL`, `CLIENT_ORIGIN`. SQLite defaults to `server/data/cafe-pos.db` when `DATABASE_URL` is omitted.
 - The Next proxy reads `SERVER_URL` and needs a base URL for the Express service (locally, `http://localhost:3000`). README documents this, but the checked-in `client/.env.example` still documents `NEXT_PUBLIC_API_URL`, which current client code does not use.
-- In Vercel configuration, the client service receives `SERVER_URL` through the service binding.
+- The exploratory Vercel configuration gives the client service `SERVER_URL` through a service binding. It is not the production deployment plan; a Vercel deployment would need a persistent hosted database such as PostgreSQL rather than this local SQLite file.
 
 ## Maintenance note
 
