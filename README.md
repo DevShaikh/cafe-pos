@@ -2,7 +2,7 @@
 
 A locally running cafe point-of-sale app for the counter. Built as a learning and portfolio project.
 
-**Status:** Phases A–E (UI/UX) are nearly complete. The core checkout loop, automatic thermal printing, order management, and collapsible sidebar are fully functional. The next major milestone is **Phase F (Backend Wiring)**.
+**Status:** The catalog is connected to the API. Orders and payments still run in browser state; authentication has a server-side login skeleton but no client flow or protected routes. Phase F is in progress. See [`docs/backend-plan.md`](docs/backend-plan.md) for the verified implementation state and priorities.
 
 ---
 
@@ -21,7 +21,7 @@ Payment is always manual. The app only records that the cashier confirmed the mo
 
 Full product rules, layout, and acceptance criteria live in [`docs/pos-spec.md`](docs/pos-spec.md).  
 Quick locked decisions: [`docs/decisions.md`](docs/decisions.md).  
-Backend architecture and execution plan: [`docs/backend-plan.md`](docs/backend-plan.md).
+Current architecture, implemented flows, gaps, and backend plan: [`docs/backend-plan.md`](docs/backend-plan.md).
 
 ---
 
@@ -62,14 +62,23 @@ PORT=3000
 CLIENT_ORIGIN=http://localhost:3001
 ```
 
-### 3. Set up the database
+### 3. Configure the client API proxy
+
+Create `client/.env.local` so the Next.js API proxy can reach Express:
+
+```env
+SERVER_URL=http://localhost:3000
+NEXT_PUBLIC_SITE_URL=http://localhost:3001
+```
+
+### 4. Set up the database
 
 ```bash
 npm run db:migrate --prefix server
 npm run db:seed --prefix server
 ```
 
-### 4. Run the app
+### 5. Run the app
 
 ```bash
 npm run dev
@@ -96,9 +105,9 @@ server/
   seeds/         Demo data
   src/           Express app: routes, controllers, services, schemas
 docs/
-  pos-spec.md       Full product & UI specification (source of truth)
-  decisions.md      Locked decisions (quick reference)
-  backend-plan.md   Backend architecture & phased execution plan
+  pos-spec.md       Product behavior and acceptance criteria
+  decisions.md      Current decisions, with implementation status
+  backend-plan.md   Repository map, actual flows, risks, and next steps
 ```
 
 ---
@@ -107,9 +116,9 @@ docs/
 
 | Phase | Focus                                                       | Status         |
 | ----- | ----------------------------------------------------------- | -------------- |
-| **A** | Application shell, compact sidebar, theme, view switching   | ✅ Done        |
-| **B** | Product catalog + cart panel shell                          | ✅ Done        |
-| **C** | Order builder + Generate receipt (unpaid)                   | ✅ Done        |
-| **D** | Orders view: Mark as paid, paid history                     | ✅ Done        |
-| **E** | Session reports, print, accessibility & polish              | 🔄 In Progress |
-| **F** | **Backend wiring** (database, auth, API, offline hardening) | ⏳ Pending     |
+| **A** | Application shell, sidebar, theme, view switching            | ✅ Implemented |
+| **B** | Product catalog and cart UI                                  | ✅ Implemented |
+| **C** | Local receipt generation and thermal print template          | ✅ UI only     |
+| **D** | Local unpaid/paid order views                                 | ✅ UI only     |
+| **E** | Reports and accessibility polish                              | 🔄 Partial     |
+| **F** | Persisted orders, payment API, authentication, recovery       | 🔄 In Progress |

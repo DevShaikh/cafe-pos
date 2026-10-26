@@ -1,7 +1,7 @@
 # Cafe POS — Product & UI Specification
 
-**Version:** 2026.10.27  
-**Status:** Living specification. Phases A-D are complete. Phase E is nearly complete. Phase F (backend) is the next major focus.  
+**Version:** 2026.10.26
+**Status:** Living product specification. The catalog API is connected. Receipt, payment, and reports flows are still local UI behavior. Login and settings pages are placeholders. See [`backend-plan.md`](backend-plan.md) for repository state and implementation priorities.
 **Audience:** Implementers (human or AI). This file is the single source of truth.
 
 ---
@@ -32,8 +32,8 @@ Cafe POS is a locally running, single-cashier point-of-sale application for a ca
 - No real payment gateway. Payment is always manual.
 - No multi-user login for waiters.
 - No inventory management, stock counts, or product editing screens.
-- No database persistence of receipts yet (using Zustand `persist` localStorage).
-- No authentication implementation yet. Login page is visual only.
+- Receipt data is held in Zustand `persist` localStorage; there is no order/payment API yet. Electron currently clears that storage at startup.
+- The login page is a placeholder. The server has login/logout handlers, but no client login flow, session lookup, or protected API routes.
 
 ### 1.3 Core mental model
 
@@ -180,9 +180,11 @@ total = subtotal + tax
 - ⏳ Print Report
 - ⏳ Keyboard, focus, contrast polish
 
-### Phase F — Backend wiring (⏳ Pending)
+### Phase F — Backend wiring (🔄 In progress)
 
 - See [`docs/backend-plan.md`](backend-plan.md) for the full architecture, schema, API contract, and phased execution plan.
+- Implemented so far: SQLite/Prisma models and migrations, seed script, product list API, and partial server-side login/logout endpoints.
+- Still missing: durable order and payment routes, auth enforcement and client session flow, server-owned totals, idempotency, and reports from persisted data.
 
 ---
 
@@ -190,4 +192,4 @@ total = subtotal + tax
 
 - 2026-10-21: Complete rewrite. Absorbed original domain insights, new UI/UX flow, all confirmed decisions, and speed-first layout refinements.
 - 2026-10-26: Updated status to reflect Phase A-D completion, integrated automatic thermal printing flow, collapsible shadcn sidebar, fixed receipt selection, and Reports Summary Cards.
-- 2026-10-27: Added reference to the Backend Plan and clarified Phase F as the next focus.
+- 2026-10-26: Added the repository guide reference and clarified Phase F implementation status.
