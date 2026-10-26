@@ -46,7 +46,7 @@ V1 is a local, single-cashier application, so SQLite remains the selected databa
 
 - Next.js pages exist for catalog, orders, reports, settings, and login. The root URL redirects to `/catalog`.
 - Catalog fetches products through a TanStack Query hook and the browser calls the Next catch-all `/api/*` proxy, which forwards to Express using `SERVER_URL`.
-- Product list API reads Prisma products and serializes price as a two-decimal string. The UI adds products to a Zustand cart.
+- Product list API reads Prisma products and returns integer `pricePaisa` values. Product cards convert to PKR for display and add decimal-PKR snapshots to the Zustand cart.
 - Receipt generation, 8% tax, receipt numbering, paid/unpaid state, reports, and printing are client-side. Receipts persist in browser localStorage via Zustand.
 - Express mounts `/api`, Helmet, single-origin CORS, JSON/urlencoded parsers, request logging, cookie parsing, JSON 404s, and a global error handler.
 - API routes currently include `GET /api`, `GET /api/health`, `GET /api/products`, `GET /api/auth/staff`, `POST /api/auth/login`, `POST /api/auth/logout`, and `GET /api/auth/me`.
@@ -62,7 +62,7 @@ V1 is a local, single-cashier application, so SQLite remains the selected databa
 - No edit/regenerate, void/refund, payment method capture, session/open-close model, or server-backed reports flow is present.
 - Catalog search/category controls are visual only; product query schema includes filters but the controller/service do not parse/use them. Product create schema exists but there is no create route.
 - Settings page, cashier identity, register status, and notification controls are placeholders/static UI.
-- Product API values and all persisted monetary columns currently use JavaScript/SQLite floating-point numbers, not integer paisa. Backend tax basis points are not in the schema.
+- Product prices and order/payment monetary columns use integer paisa in the Prisma schema; tax rates use basis points. The product API sends `pricePaisa`. The current browser cart still calculates in PKR decimal numbers, and order/payment routes do not yet exist.
 - `IdempotencyKey` is only a Prisma model. No endpoint or code uses it.
 - Electron has no packaged/offline server lifecycle or build configuration in this repo. It loads `http://localhost:3001` in both packaged and development modes.
 
@@ -70,7 +70,7 @@ V1 is a local, single-cashier application, so SQLite remains the selected databa
 
 ### Catalog and cart
 
-`/` → redirect to `/catalog` → `useProducts()` → Axios request `/api/products` → Next route handler forwards to `{SERVER_URL}/api/products` → Express product controller/service → Prisma `Product.findMany()` → response with decimal-string prices → product cards add snapshots into Zustand cart.
+`/` → redirect to `/catalog` → session gate checks `/api/auth/me` → `useProducts()` → Axios request `/api/products` → Next route handler forwards to `{SERVER_URL}/api/products` with the session cookie → Express auth middleware → product controller/service → Prisma `Product.findMany()` → response with integer `pricePaisa` → product cards convert to PKR for display and add snapshots into Zustand cart.
 
 ### Receipt, payment and report today
 
@@ -87,7 +87,7 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 ## Fix first: prioritized findings
 
 1. **Resolve the destructive product migration before v1.** `20261026175721_add_pos_core_models` drops and recreates `products`. It is already applied to the local development database, so do not edit the committed migration in place without an intentional backup and migration rebaseline. Before v1, establish a safe migration history for any database that has real catalog data. The seed script now preserves existing products and order items while inserting missing demo products.
-2. **Settle the money representation and migrate consistently.** Decisions say integer paisa, but Product, Order, OrderItem, Payment and Settings use `Float`; current client prices are PKR decimal numbers/strings. Choose integer minor units end-to-end before order APIs and migrate the database without rounding loss.
+2. **Finish migrating money calculations to integer paisa.** The database schema and product API now use paisa and basis points. Move cart totals and tax calculations to integer arithmetic when replacing local receipts with server-backed order APIs; preserve the existing UI display in PKR.
 3. **Finish server-side authorization before exposing order/payment writes.** Define role policy and add rate limiting to PIN login. The client session flow and authenticated product API are now implemented; use the same middleware on all future business routes.
 4. **Implement order creation and payment as transactional server operations.** Server must re-read product prices, calculate totals/tax, snapshot item names/prices, assign receipt numbers, record payment/audit events, and enforce idempotency. Never accept authoritative totals or receipt numbers from the client.
 5. **Move Orders and Reports to API-backed state.** Migrate existing local-state behaviors to server queries/mutations, define reconciliation for existing local receipts, and only then remove or downgrade client order persistence.
@@ -99,7 +99,7 @@ Electron opens the local Next client URL and clears localStorage/cookies/Indexed
 ## Recommended implementation sequence
 
 1. Resolve the migration and seed data-safety issues; establish an explicit backup/reset policy.
-2. Decide on integer paisa and revise Prisma schema/migrations/API contracts, including `taxRateBps`.
+2. Keep the new integer-paisa schema as the basis for order APIs; convert client cart calculations to integer paisa when moving receipts to server-backed orders.
 3. Add server-side authorization to business routes and define role policy before adding order/payment writes.
 4. Add product filters and API contract tests if needed by the checkout flow.
 5. Implement order create/read/edit-or-void and payment endpoints. Use database transactions for receipt counter, order/items, payment transition, audit events, and idempotency record.

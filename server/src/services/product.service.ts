@@ -4,16 +4,13 @@ import AppError from "../utils/app-error";
 
 /**
  * Fetches all products from the database.
- * @returns A promise that resolves to an array of products, each with its price formatted to two decimal places.
+ * @returns Products with integer `pricePaisa` values.
  * @throws AppError when the database query fails.
  */
 export const getProducts = async () => {
   try {
     const products = await prismaClient.product.findMany();
-    return products.map((product) => ({
-      ...product,
-      price: product.price.toFixed(2),
-    }));
+    return products;
   } catch (error) {
     throw new AppError(
       500,

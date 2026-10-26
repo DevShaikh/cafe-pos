@@ -13,7 +13,7 @@ async function main() {
       id: "singleton",
       cafeName: "Cafe POS",
       currency: "PKR",
-      taxRate: 0.08, // 8%
+      taxRateBps: 800, // 8%
       receiptPrefix: "R",
     },
   });

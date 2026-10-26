@@ -14,10 +14,7 @@ export const createProductSchema = z
   .object({
     name: z.string().trim().min(1).max(120),
     description: z.string().trim().max(2000).optional(),
-    // Sent as a string to avoid float rounding, e.g. "120.00"
-    price: z.string().regex(/^(?:0|[1-9]\d{0,7})(?:\.\d{1,2})?$/, {
-      message: "Price must be a non-negative amount with at most two decimals.",
-    }),
+    pricePaisa: z.number().int().min(0).max(9_999_999_999),
     category: z.string().trim().min(1).max(60),
     imageUrl: z.url({ protocol: /^https?$/ }).optional(),
   })

@@ -4,7 +4,7 @@ export const productSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   description: z.string().nullable(),
-  price: z.string().regex(/^\d+\.\d{2}$/),
+  pricePaisa: z.number().int().nonnegative(),
   imageUrl: z.url().nullable(),
   category: z.string(),
   isAvailable: z.boolean(),

@@ -2,7 +2,7 @@ model Settings {
     id            String   @id @default("singleton")
     cafeName      String   @default("Cafe POS")
     currency      String   @default("PKR")
-    taxRate       Float    @default(0.08)
+    taxRateBps    Int      @default(800)
     receiptFooter String?  @default("Thank you for your visit!")
     receiptPrefix String   @default("R")
     updatedAt     DateTime @updatedAt

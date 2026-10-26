@@ -22,10 +22,10 @@ model Order {
     orderType     OrderType
     status        OrderStatus @default(PLACED)
 
-    subtotal Float
-    tax      Float
-    total    Float
-    taxRate  Float
+    subtotalPaisa Int @default(0)
+    taxPaisa      Int @default(0)
+    totalPaisa    Int @default(0)
+    taxRateBps    Int @default(0)
 
     createdById String
     createdBy   Staff  @relation("OrderCreatedBy", fields: [createdById], references: [id])
@@ -47,9 +47,9 @@ model OrderItem {
     orderId      String
     productId    String?
     nameSnapshot String
-    unitPrice    Float
+    unitPricePaisa Int @default(0)
     quantity     Int
-    lineTotal    Float
+    lineTotalPaisa Int @default(0)
 
     order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
     product Product? @relation(fields: [productId], references: [id])
@@ -59,9 +59,9 @@ model Payment {
     id          String        @id @default(uuid())
     orderId     String
     method      PaymentMethod
-    amount      Float
-    received    Float?
-    change      Float?
+    amountPaisa   Int @default(0)
+    receivedPaisa Int?
+    changePaisa   Int?
     createdById String
     createdBy   Staff         @relation(fields: [createdById], references: [id])
     createdAt   DateTime      @default(now())

@@ -9,7 +9,8 @@ interface ProductCardProps {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const { addItem } = useCartActions();
-  const formattedPrice = formatPrice(parseFloat(product.price));
+  const price = product.pricePaisa / 100;
+  const formattedPrice = formatPrice(price);
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:border-primary/50 hover:shadow-md">
@@ -38,7 +39,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
               addItem({
                 id: product.id,
                 name: product.name,
-                price: parseFloat(product.price),
+                price,
               })
             }
             className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground shadow-sm transition-all hover:bg-primary hover:text-primary-foreground active:scale-95"
