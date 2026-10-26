@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import { Receipt } from "@/types";
-import { formatPKR } from "@/lib/utils";
+import { formatPrice } from "@/lib/utils";
 
 interface PrintReceiptProps {
   receipt: Receipt;
@@ -56,7 +56,7 @@ const PrintReceipt = forwardRef<HTMLDivElement, PrintReceiptProps>(
                   <span>{item.name}</span>
                 </div>
                 <span className="whitespace-nowrap">
-                  {formatPKR(lineTotalPaisa)}
+                  {formatPrice(lineTotalPaisa)}
                 </span>
               </div>
             );
@@ -67,15 +67,15 @@ const PrintReceipt = forwardRef<HTMLDivElement, PrintReceiptProps>(
         <div className="space-y-1 text-xs">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span>{formatPKR(receipt.subtotalPaisa)}</span>
+            <span>{formatPrice(receipt.subtotalPaisa)}</span>
           </div>
           <div className="flex justify-between">
             <span>Tax (8%)</span>
-            <span>{formatPKR(receipt.taxPaisa)}</span>
+            <span>{formatPrice(receipt.taxPaisa)}</span>
           </div>
           <div className="flex justify-between border-t border-dashed border-black pt-2 text-sm font-bold">
             <span>TOTAL</span>
-            <span>{formatPKR(receipt.totalPaisa)}</span>
+            <span>{formatPrice(receipt.totalPaisa)}</span>
           </div>
         </div>
 
