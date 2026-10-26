@@ -7,8 +7,7 @@ async function proxy(request: NextRequest) {
     return new Response("SERVER_URL binding not configured", { status: 500 });
   }
 
-  console.log(process.env.SERVER_URL);
-
+  // Keep the /api prefix: Express mounts its routes at app.use("/api", ...)
   const target = new URL(
     request.nextUrl.pathname + request.nextUrl.search,
     SERVER_URL,
