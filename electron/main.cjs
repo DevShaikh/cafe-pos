@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu } = require("electron");
+const { app, BrowserWindow, Menu, session } = require("electron"); // 1. Imported session
 const path = require("path");
 
 Menu.setApplicationMenu(null);
@@ -14,21 +14,27 @@ const createWindow = () => {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    // Better icon handling
-    icon: path.join(__dirname, "../build/icon.png"), // or .ico
+    icon: path.join(__dirname, "../build/icon.png"),
   });
 
-  // Development
   if (!app.isPackaged) {
     win.loadURL("http://localhost:3001");
-    // win.webContents.openDevTools(); // optional
   } else {
-    // Production - you will need to adjust this later
-    win.loadURL("http://localhost:3001"); // temporary
+    win.loadURL("http://localhost:3001");
   }
 };
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  try {
+    // 2. Wipe storage data (localstorage, cookies, indexeddb, etc.) before creating the window
+    await session.defaultSession.clearStorageData({
+      storages: ["localstorage", "cookies", "indexdb", "websql", "appcache"],
+    });
+  } catch (error) {
+    console.error("Failed to clear session storage:", error);
+  }
+
+  // 3. Launch window once the clean state is ready
   createWindow();
 
   app.on("activate", () => {
