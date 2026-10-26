@@ -1,13 +1,34 @@
 import { apiClient } from "@/lib/services/api-client";
-import type { OrderType, PaymentMethod, Receipt, ServerOrder, ServiceResponse } from "@/types";
+import type {
+  OrderType,
+  OrdersPage,
+  PaymentMethod,
+  Receipt,
+  SalesReport,
+  ServerOrder,
+  ServiceResponse,
+} from "@/types";
 
 export type CreateOrderInput = {
   orderType: OrderType;
   items: { productId: string; quantity: number }[];
 };
 
-export const getOrders = (signal?: AbortSignal): ServiceResponse<ServerOrder[]> =>
-  apiClient.get("/orders?limit=200", { signal });
+export type OrderFilters = { from?: string; to?: string };
+export type OrdersPageParams = OrderFilters & {
+  cursor?: string | null;
+  limit?: number;
+};
+
+export const getOrders = (
+  params: OrdersPageParams = {},
+  signal?: AbortSignal,
+): ServiceResponse<OrdersPage> => apiClient.get("/orders", { params, signal });
+
+export const getSalesReport = (
+  params: OrderFilters,
+  signal?: AbortSignal,
+): ServiceResponse<SalesReport> => apiClient.get("/reports/sales", { params, signal });
 
 export const createOrder = (
   input: CreateOrderInput,

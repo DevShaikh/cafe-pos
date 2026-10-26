@@ -3,7 +3,12 @@ import { ERROR_CODES } from "../constants/error-codes";
 import { prismaClient } from "../lib/prismaClient";
 import type { Prisma } from "../generated/prisma/client.js";
 import AppError from "../utils/app-error";
-import type { CreateOrderInput, RecordPaymentInput } from "../schemas/order";
+import type {
+  CreateOrderInput,
+  ListOrdersInput,
+  RecordPaymentInput,
+  SalesReportInput,
+} from "../schemas/order";
 
 const MAX_SQLITE_INT = 2_147_483_647;
 
@@ -184,12 +189,76 @@ export async function createOrder(
   });
 }
 
-export async function listOrders(limit: number) {
-  return prismaClient.order.findMany({
-    take: limit,
-    orderBy: { createdAt: "desc" },
-    include: { items: true, payments: true },
-  });
+export async function listOrders(input: ListOrdersInput) {
+  const where: Prisma.OrderWhereInput = {};
+  if (input.from || input.to) {
+    where.createdAt = {
+      ...(input.from ? { gte: new Date(input.from) } : {}),
+      ...(input.to ? { lt: new Date(input.to) } : {}),
+    };
+  }
+  const unpaidWhere: Prisma.OrderWhereInput = {
+    status: "PLACED",
+    ...(where.createdAt ? { createdAt: where.createdAt } : {}),
+  };
+
+  const [page, unpaidCount] = await prismaClient.$transaction([
+    prismaClient.order.findMany({
+      where,
+      ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+      take: input.limit + 1,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      include: { items: true, payments: true },
+    }),
+    prismaClient.order.count({ where: unpaidWhere }),
+  ]);
+  const hasMore = page.length > input.limit;
+  const items = hasMore ? page.slice(0, input.limit) : page;
+
+  return {
+    items,
+    unpaidCount,
+    hasMore,
+    nextCursor: hasMore ? items.at(-1)?.id ?? null : null,
+  };
+}
+
+export async function getSalesReport(input: SalesReportInput) {
+  const where: Prisma.OrderWhereInput = { status: "PAID" };
+  if (input.from || input.to) {
+    where.paidAt = {
+      ...(input.from ? { gte: new Date(input.from) } : {}),
+      ...(input.to ? { lt: new Date(input.to) } : {}),
+    };
+  }
+
+  const [summary, byOrderType] = await prismaClient.$transaction([
+    prismaClient.order.aggregate({
+      where,
+      _sum: { totalPaisa: true },
+      _count: { _all: true },
+    }),
+    prismaClient.order.groupBy({
+      by: ["orderType"],
+      where,
+      orderBy: { orderType: "asc" },
+      _sum: { totalPaisa: true },
+      _count: { _all: true },
+    }),
+  ]);
+
+  return {
+    totalPaisa: summary._sum.totalPaisa ?? 0,
+    paidOrderCount: summary._count._all,
+    byOrderType: byOrderType.map((group) => ({
+      orderType: group.orderType,
+      totalPaisa: group._sum?.totalPaisa ?? 0,
+      orderCount:
+        group._count && typeof group._count !== "boolean"
+          ? group._count._all ?? 0
+          : 0,
+    })),
+  };
 }
 
 export async function getOrder(id: string) {

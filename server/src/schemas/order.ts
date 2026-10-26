@@ -35,11 +35,39 @@ export const recordPaymentSchema = z
 
 export const orderIdSchema = z.uuid();
 export const idempotencyKeySchema = z.string().trim().min(1).max(200);
+const dateRangeFields = {
+  from: z.iso.datetime({ offset: true }).optional(),
+  to: z.iso.datetime({ offset: true }).optional(),
+};
+
+function validateDateRange(
+  range: { from?: string; to?: string },
+  context: z.RefinementCtx,
+) {
+  if (range.from && range.to && Date.parse(range.from) >= Date.parse(range.to)) {
+    context.addIssue({
+      code: "custom",
+      path: ["to"],
+      message: "The end date must be later than the start date.",
+    });
+  }
+}
+
 export const listOrdersQuerySchema = z
   .object({
-    limit: z.coerce.number().int().min(1).max(200).default(100),
+    ...dateRangeFields,
+    cursor: z.uuid().optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(50),
   })
-  .strict();
+  .strict()
+  .superRefine(validateDateRange);
+
+export const salesReportQuerySchema = z
+  .object(dateRangeFields)
+  .strict()
+  .superRefine(validateDateRange);
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type RecordPaymentInput = z.infer<typeof recordPaymentSchema>;
+export type ListOrdersInput = z.infer<typeof listOrdersQuerySchema>;
+export type SalesReportInput = z.infer<typeof salesReportQuerySchema>;

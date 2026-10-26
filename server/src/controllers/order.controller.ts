@@ -38,9 +38,9 @@ function validate<T>(schema: z.ZodType<T>, value: unknown): T {
 export async function listOrders(req: Request, res: Response, next: NextFunction) {
   try {
     requireStaff(req);
-    const { limit } = validate(listOrdersQuerySchema, req.query);
-    const orders = await orderService.listOrders(limit);
-    sendSuccessResponse(res, 200, orders, "Orders retrieved successfully");
+    const query = validate(listOrdersQuerySchema, req.query);
+    const page = await orderService.listOrders(query);
+    sendSuccessResponse(res, 200, page, "Orders retrieved successfully");
   } catch (error) {
     next(error);
   }

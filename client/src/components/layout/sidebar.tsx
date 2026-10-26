@@ -36,7 +36,7 @@ const Sidebar = () => {
   const ordersQuery = useOrders();
   const unpaidCount =
     receipts.filter((r) => r.status === "UNPAID").length +
-    (ordersQuery.data ?? []).filter((order) => order.status === "PLACED").length;
+    (ordersQuery.data?.unpaidCount ?? 0);
 
   return (
     <ShadcnSidebar

@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { CheckCircle2, Receipt as ReceiptIcon, Clock } from "lucide-react";
 import { useOrderStore, useOrderActions } from "@/store/order.store";
-import { useOrders, useRecordOrderPayment } from "@/lib/hooks/order.hooks";
+import { useInfiniteOrders, useRecordOrderPayment } from "@/lib/hooks/order.hooks";
 import { toReceipt } from "@/lib/services/order.service";
 import { formatPaisa } from "@/lib/utils";
+import { dateIsInRange, dateRangeIsValid, makeDateFilters } from "@/lib/date-range";
 import type { PaymentMethod } from "@/types";
 
 const paymentMethods: { value: PaymentMethod; label: string }[] = [
@@ -18,13 +19,21 @@ const paymentMethods: { value: PaymentMethod; label: string }[] = [
 const OrdersPage = () => {
   const { receipts: localReceipts } = useOrderStore();
   const { markAsPaid } = useOrderActions();
-  const ordersQuery = useOrders();
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const validRange = dateRangeIsValid(fromDate, toDate);
+  const ordersQuery = useInfiniteOrders(
+    makeDateFilters(fromDate, toDate),
+    validRange,
+  );
   const paymentMutation = useRecordOrderPayment();
   const [methods, setMethods] = useState<Record<string, PaymentMethod>>({});
 
   const receipts = [
-    ...localReceipts.map((receipt) => ({ receipt, serverBacked: false })),
-    ...(ordersQuery.data ?? []).map((order) => ({
+    ...localReceipts
+      .filter((receipt) => dateIsInRange(receipt.createdAt, fromDate, toDate))
+      .map((receipt) => ({ receipt, serverBacked: false })),
+    ...(ordersQuery.data?.pages.flatMap((page) => page.items) ?? []).map((order) => ({
       receipt: toReceipt(order),
       serverBacked: true,
     })),
@@ -33,6 +42,12 @@ const OrdersPage = () => {
   );
   const unpaidReceipts = receipts.filter((row) => row.receipt.status === "UNPAID");
   const paidReceipts = receipts.filter((row) => row.receipt.status === "PAID");
+  const unpaidCount =
+    localReceipts.filter(
+      (receipt) =>
+        receipt.status === "UNPAID" &&
+        dateIsInRange(receipt.createdAt, fromDate, toDate),
+    ).length + (ordersQuery.data?.pages[0]?.unpaidCount ?? 0);
 
   const markPaid = (row: (typeof receipts)[number]) => {
     if (row.serverBacked) {
@@ -115,6 +130,39 @@ const OrdersPage = () => {
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-y-auto">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4">
+        <label className="grid gap-1 text-sm text-muted-foreground">
+          From
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(event) => setFromDate(event.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-foreground"
+          />
+        </label>
+        <label className="grid gap-1 text-sm text-muted-foreground">
+          To
+          <input
+            type="date"
+            value={toDate}
+            onChange={(event) => setToDate(event.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-foreground"
+          />
+        </label>
+        {(fromDate || toDate) && (
+          <button
+            onClick={() => { setFromDate(""); setToDate(""); }}
+            className="rounded-lg px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10"
+          >
+            Clear dates
+          </button>
+        )}
+      </div>
+      {!validRange && (
+        <p role="alert" className="text-sm text-destructive">
+          The end date must be the same as or later than the start date.
+        </p>
+      )}
       {ordersQuery.isLoading && <p className="text-sm text-muted-foreground">Loading server orders…</p>}
       {ordersQuery.isError && (
         <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -137,7 +185,7 @@ const OrdersPage = () => {
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-foreground">Unpaid Orders</h3>
           <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-            {unpaidReceipts.length} pending
+            {unpaidCount} pending
           </span>
         </div>
         {unpaidReceipts.length === 0 ? (
@@ -166,6 +214,15 @@ const OrdersPage = () => {
           <div className="grid gap-3">{paidReceipts.map((row) => receiptCard(row, true))}</div>
         )}
       </section>
+      {ordersQuery.hasNextPage && (
+        <button
+          onClick={() => ordersQuery.fetchNextPage()}
+          disabled={ordersQuery.isFetchingNextPage}
+          className="mx-auto rounded-xl border border-border px-5 py-3 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+        >
+          {ordersQuery.isFetchingNextPage ? "Loading…" : "Load more orders"}
+        </button>
+      )}
     </div>
   );
 };

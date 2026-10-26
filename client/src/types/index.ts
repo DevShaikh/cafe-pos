@@ -53,6 +53,23 @@ export type ServerOrder = {
   }[];
 };
 
+export type OrdersPage = {
+  items: ServerOrder[];
+  hasMore: boolean;
+  nextCursor: string | null;
+  unpaidCount: number;
+};
+
+export type SalesReport = {
+  totalPaisa: number;
+  paidOrderCount: number;
+  byOrderType: {
+    orderType: OrderType;
+    totalPaisa: number;
+    orderCount: number;
+  }[];
+};
+
 export type PaymentMethod = "CASH" | "CARD_MANUAL" | "EASYPAISA" | "OTHER";
 
 export type OrderStates = {
