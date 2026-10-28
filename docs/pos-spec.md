@@ -45,19 +45,19 @@ Draft cart  →  Generate receipt (prints)  →  Unpaid  →  (optional Edit / R
 
 ## 2. Confirmed product decisions
 
-| #   | Topic             | Decision                                                                                          |
-| --- | ----------------- | ------------------------------------------------------------------------------------------------- |
-| 1   | Payment lifecycle | Unpaid → Mark as paid. Cashier confirms cash / EasyPaisa / transfer outside the system.           |
-| 2   | Order type        | Dine in / Takeaway is only a label stored on the receipt. No different workflows.                 |
-| 3   | Tax               | Hard-coded percentage for now (default 8 %), rounded to 2 decimals.                               |
-| 4   | Receipt label     | Dropped. No free-text “table / customer name” field.                                              |
-| 5   | Product images    | Placeholders only (Coffee icon). Real photos later.                                               |
-| 6   | Layout            | Collapsible left sidebar (shadcn) + right cart on desktop.                                        |
-| 7   | Currency          | PKR. Display with `Intl.NumberFormat("en-PK", { minimumFractionDigits: 2 })`. Prefix `PKR`.       |
-| 8   | Money arithmetic  | Use integer paisa for cart, receipt, and backend calculations. Display PKR with two decimal places. |
-| 9   | Users             | Cashier only. No waiter accounts.                                                                 |
+| #   | Topic             | Decision                                                                                                         |
+| --- | ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 1   | Payment lifecycle | Unpaid → Mark as paid. Cashier confirms cash / EasyPaisa / transfer outside the system.                          |
+| 2   | Order type        | Dine in / Takeaway is only a label stored on the receipt. No different workflows.                                |
+| 3   | Tax               | Hard-coded percentage for now (default 8 %), rounded to 2 decimals.                                              |
+| 4   | Receipt label     | Dropped. No free-text “table / customer name” field.                                                             |
+| 5   | Product images    | Placeholders only (Coffee icon). Real photos later.                                                              |
+| 6   | Layout            | Collapsible left sidebar (shadcn) + right cart on desktop.                                                       |
+| 7   | Currency          | PKR. Display with `Intl.NumberFormat("en-PK", { minimumFractionDigits: 2 })`. Prefix `PKR`.                      |
+| 8   | Money arithmetic  | Use integer paisa for cart, receipt, and backend calculations. Display PKR with two decimal places.              |
+| 9   | Users             | Cashier only. No waiter accounts.                                                                                |
 | 10  | Day / session     | Cashier opens/closes a session; a session cannot close with unpaid orders. Cash reconciliation is a future step. |
-| 11  | Printing          | Receipts print automatically on generation. Uses `react-to-print` with an 80mm thermal template.  |
+| 11  | Printing          | Receipts print automatically on generation. Uses `react-to-print` with an 80mm thermal template.                 |
 
 ---
 
@@ -75,12 +75,12 @@ Draft cart  →  Generate receipt (prints)  →  Unpaid  →  (optional Edit / R
 
 Primary views (Next.js App Router):
 
-| View        | Route       | Purpose                                           |
-| ----------- | ----------- | ------------------------------------------------- |
-| New Receipt | `/catalog`  | Build and generate receipts                       |
+| View        | Route       | Purpose                                            |
+| ----------- | ----------- | -------------------------------------------------- |
+| New Receipt | `/catalog`  | Build and generate receipts                        |
 | Orders      | `/orders`   | Unpaid list, paginated order history, date filters |
-| Reports     | `/reports`  | Date-range sales metrics and order-type breakdown |
-| Settings    | `/settings` | Static settings UI                                |
+| Reports     | `/reports`  | Date-range sales metrics and order-type breakdown  |
+| Settings    | `/settings` | Static settings UI                                 |
 
 ---
 
@@ -184,9 +184,18 @@ totalPaisa = subtotalPaisa + taxPaisa
 
 ### Phase F — Backend wiring (🔄 In progress)
 
+### Phase F — Backend wiring (✅ Analyzed, ready to implement)
+
 - See [`docs/backend-plan.md`](backend-plan.md) for the full architecture, schema, API contract, and phased execution plan.
-- Implemented so far: SQLite/Prisma models and migrations using integer paisa, product API, staff login/session flow, authenticated product/order APIs, server-owned order totals, idempotent transactional checkout/payment, cursor-paginated/date-filtered order history, and date-range sales summaries.
-- Still missing: opening/closing cash reconciliation, deliberate offline queue behavior, and an archive/import plan for device-only receipts. Existing local receipts remain visible, with local payment state.
+- **Status:** Analysis complete. All gaps identified and documented. Ready for implementation team to tackle.
+- **Gaps summary:** Phase F backend wiring has 6 specific gaps requiring implementation:
+  1. Catalog filtering needs wire-up (search/category query params not applied in controller)
+  2. Receipt edit/void flow missing (no UI button + no backend endpoint to update unpaid orders)
+  3. Order voiding endpoint missing (status enum has VOIDED but no POST /orders/:id/void)
+  4. Cash reconciliation model incomplete (RegisterSession needs openingCashPaisa, closingCashPaisa fields)
+  5. Product CRUD routes incomplete (no POST/PUT/PATCH/DELETE endpoints for product management)
+  6. Role-based auth checks undefined (middleware references staff.role but no role enum policy defined)
+- **Reference:** All gaps with file locations and implementation details documented in [`docs/backend-plan.md`](backend-plan.md) "Not implemented" section.
 
 ---
 
