@@ -50,10 +50,8 @@ const LoginPage = () => {
   }, [router, session.data]);
 
   useEffect(() => {
-    if (!staffId && staffQuery.data?.length) {
-      setStaffId(staffQuery.data[0].id);
-    }
-  }, [staffId, staffQuery.data]);
+    if (session.data) router.replace("/catalog");
+  }, [router, session.data]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
