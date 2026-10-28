@@ -20,7 +20,7 @@ Cafe POS is a locally running, single-cashier point-of-sale application for a ca
 6. Edit and regenerate an unpaid receipt if the customer changes the order.
 7. When the waiter returns with cash (or EasyPaisa / bank transfer confirmation), mark the receipt as paid.
 8. Review paid order history with an optional date range.
-9. Generate a date-range sales report. Cashier-defined open/close sessions are not implemented yet.
+9. Generate a date-range sales report or select one of the cashier's sessions.
 10. Open Settings, account actions, and notifications.
 
 ### 1.2 Explicit non-goals (current phase)
@@ -56,7 +56,7 @@ Draft cart  →  Generate receipt (prints)  →  Unpaid  →  (optional Edit / R
 | 7   | Currency          | PKR. Display with `Intl.NumberFormat("en-PK", { minimumFractionDigits: 2 })`. Prefix `PKR`.       |
 | 8   | Money arithmetic  | Use integer paisa for cart, receipt, and backend calculations. Display PKR with two decimal places. |
 | 9   | Users             | Cashier only. No waiter accounts.                                                                 |
-| 10  | Day / session     | Date-range reporting for now; cashier-defined open/close sessions remain a future step.           |
+| 10  | Day / session     | Cashier opens/closes a session; a session cannot close with unpaid orders. Cash reconciliation is a future step. |
 | 11  | Printing          | Receipts print automatically on generation. Uses `react-to-print` with an 80mm thermal template.  |
 
 ---
@@ -101,7 +101,7 @@ Primary views (Next.js App Router):
 
 ### 5.3 Reports
 
-- **Summary Cards**: Payments Collected, Paid Orders count, Average Order. Server aggregates all paid orders in the selected date range; matching legacy receipts on this device are added.
+- **Summary Cards**: Payments Collected, Paid Orders count, Average Order. Server aggregates all paid orders in the selected date range or selected session; matching legacy receipts are added only to date-range reports.
 - **Sales by Order Type**: Dine-in vs Takeaway totals and paid-order counts for the selected date range.
 - **Print Report**: A4-style summary via `react-to-print` (Pending).
 
@@ -186,7 +186,7 @@ totalPaisa = subtotalPaisa + taxPaisa
 
 - See [`docs/backend-plan.md`](backend-plan.md) for the full architecture, schema, API contract, and phased execution plan.
 - Implemented so far: SQLite/Prisma models and migrations using integer paisa, product API, staff login/session flow, authenticated product/order APIs, server-owned order totals, idempotent transactional checkout/payment, cursor-paginated/date-filtered order history, and date-range sales summaries.
-- Still missing: cashier session open/close lifecycle, deliberate offline queue behavior, and an archive/import plan for device-only receipts. Existing local receipts remain visible, with local payment state.
+- Still missing: opening/closing cash reconciliation, deliberate offline queue behavior, and an archive/import plan for device-only receipts. Existing local receipts remain visible, with local payment state.
 
 ---
 
@@ -197,3 +197,4 @@ totalPaisa = subtotalPaisa + taxPaisa
 - 2026-10-26: Added the repository guide reference and clarified Phase F implementation status.
 - 2026-10-27: Connected checkout, Orders, and summary Reports to server orders while preserving historical device receipts.
 - 2026-10-27: Added cursor-paginated order history and local-date range filters with paid-date sales aggregates.
+- 2026-10-27: Added cashier session open/close, session-linked checkout, and session-filtered reports.

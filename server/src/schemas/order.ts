@@ -63,7 +63,10 @@ export const listOrdersQuerySchema = z
   .superRefine(validateDateRange);
 
 export const salesReportQuerySchema = z
-  .object(dateRangeFields)
+  .object({
+    ...dateRangeFields,
+    sessionId: z.uuid().optional(),
+  })
   .strict()
   .superRefine(validateDateRange);
 

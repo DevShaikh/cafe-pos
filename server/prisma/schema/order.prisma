@@ -16,6 +16,11 @@ enum PaymentMethod {
     OTHER
 }
 
+enum RegisterSessionStatus {
+    OPEN
+    CLOSED
+}
+
 model Order {
     id            String      @id @default(uuid())
     receiptNumber String      @unique
@@ -30,6 +35,9 @@ model Order {
     createdById String
     createdBy   Staff  @relation("OrderCreatedBy", fields: [createdById], references: [id])
 
+    sessionId String?
+    session   RegisterSession? @relation(fields: [sessionId], references: [id])
+
     paidAt       DateTime?
     voidedAt     DateTime?
     voidedReason String?
@@ -40,6 +48,20 @@ model Order {
     items    OrderItem[]
     payments Payment[]
     events   OrderEvent[]
+}
+
+model RegisterSession {
+    id        String                @id @default(uuid())
+    staffId   String
+    status    RegisterSessionStatus @default(OPEN)
+    openedAt  DateTime              @default(now())
+    closedAt  DateTime?
+
+    staff  Staff   @relation(fields: [staffId], references: [id])
+    orders Order[]
+
+    @@index([staffId, status])
+    @@index([openedAt])
 }
 
 model OrderItem {

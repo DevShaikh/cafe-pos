@@ -14,7 +14,7 @@ export type CreateOrderInput = {
   items: { productId: string; quantity: number }[];
 };
 
-export type OrderFilters = { from?: string; to?: string };
+export type OrderFilters = { from?: string; to?: string; sessionId?: string };
 export type OrdersPageParams = OrderFilters & {
   cursor?: string | null;
   limit?: number;

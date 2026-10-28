@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { useOrderStore } from "@/store/order.store";
 import { useSalesReport } from "@/lib/hooks/order.hooks";
+import { useSessions } from "@/lib/hooks/session.hooks";
 import { dateIsInRange, dateRangeIsValid, makeDateFilters } from "@/lib/date-range";
 import { formatPaisa } from "@/lib/utils";
 import type { OrderType } from "@/types";
@@ -12,15 +13,22 @@ const ReportsPage = () => {
   const { receipts } = useOrderStore();
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [sessionId, setSessionId] = useState("");
   const validRange = dateRangeIsValid(fromDate, toDate);
-  const filters = makeDateFilters(fromDate, toDate);
+  const filters = {
+    ...makeDateFilters(fromDate, toDate),
+    ...(sessionId ? { sessionId } : {}),
+  };
   const reportQuery = useSalesReport(filters, validRange);
+  const sessionsQuery = useSessions();
 
-  const localPaid = receipts.filter(
-    (receipt) =>
-      receipt.status === "PAID" &&
-      dateIsInRange(receipt.paidAt ?? receipt.createdAt, fromDate, toDate),
-  );
+  const localPaid = sessionId
+    ? []
+    : receipts.filter(
+        (receipt) =>
+          receipt.status === "PAID" &&
+          dateIsInRange(receipt.paidAt ?? receipt.createdAt, fromDate, toDate),
+      );
   const serverTotalPaisa = reportQuery.data?.totalPaisa ?? 0;
   const serverOrderCount = reportQuery.data?.paidOrderCount ?? 0;
   const localTotalPaisa = localPaid.reduce(
@@ -67,6 +75,24 @@ const ReportsPage = () => {
           />
         </label>
         <label className="grid gap-1 text-sm text-muted-foreground">
+          Cashier session
+          <select
+            value={sessionId}
+            onChange={(event) => setSessionId(event.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-foreground"
+          >
+            <option value="">All sessions</option>
+            {(sessionsQuery.data ?? []).map((session) => (
+              <option key={session.id} value={session.id}>
+                {new Date(session.openedAt).toLocaleString("en-PK", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })} ({session.status.toLowerCase()})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm text-muted-foreground">
           To
           <input
             type="date"
@@ -75,9 +101,9 @@ const ReportsPage = () => {
             className="rounded-lg border border-border bg-background px-3 py-2 text-foreground"
           />
         </label>
-        {(fromDate || toDate) && (
+        {(fromDate || toDate || sessionId) && (
           <button
-            onClick={() => { setFromDate(""); setToDate(""); }}
+            onClick={() => { setFromDate(""); setToDate(""); setSessionId(""); }}
             className="rounded-lg px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10"
           >
             Clear dates

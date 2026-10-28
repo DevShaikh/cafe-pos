@@ -1,8 +1,8 @@
 ---
-mode: agent
+name: plan-next-step
 description: Review and plan the next approved Cafe POS implementation task
+disable-model-invocation: true
 ---
-
 # Plan the next Cafe POS step
 
 Use this prompt to prepare a small, reviewable implementation step. Ground the plan in the repository's current code, not only in its roadmap.

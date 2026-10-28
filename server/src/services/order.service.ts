@@ -102,6 +102,18 @@ export async function createOrder(
       );
     }
 
+    const session = await tx.registerSession.findFirst({
+      where: { staffId: actorId, status: "OPEN" },
+      orderBy: { openedAt: "desc" },
+    });
+    if (!session) {
+      throw new AppError(
+        409,
+        ERROR_CODES.SESSION_REQUIRED,
+        "Open a cashier session before creating an order.",
+      );
+    }
+
     const products = await tx.product.findMany({
       where: {
         id: { in: input.items.map(({ productId }) => productId) },
@@ -153,6 +165,7 @@ export async function createOrder(
         ...totals,
         taxRateBps: settings.taxRateBps,
         createdById: actorId,
+        sessionId: session.id,
         items: { create: orderItems },
         events: {
           create: {
@@ -223,8 +236,21 @@ export async function listOrders(input: ListOrdersInput) {
   };
 }
 
-export async function getSalesReport(input: SalesReportInput) {
-  const where: Prisma.OrderWhereInput = { status: "PAID" };
+export async function getSalesReport(input: SalesReportInput, staffId: string) {
+  if (input.sessionId) {
+    const session = await prismaClient.registerSession.findFirst({
+      where: { id: input.sessionId, staffId },
+      select: { id: true },
+    });
+    if (!session) {
+      throw new AppError(404, ERROR_CODES.SESSION_NOT_FOUND, "Session was not found.");
+    }
+  }
+
+  const where: Prisma.OrderWhereInput = {
+    status: "PAID",
+    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+  };
   if (input.from || input.to) {
     where.paidAt = {
       ...(input.from ? { gte: new Date(input.from) } : {}),

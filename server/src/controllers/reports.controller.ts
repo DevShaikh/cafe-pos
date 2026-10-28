@@ -20,7 +20,7 @@ export async function getSales(req: Request, res: Response, next: NextFunction) 
       );
     }
 
-    const report = await getSalesReport(parsed.data);
+    const report = await getSalesReport(parsed.data, req.authenticatedStaff.id);
     sendSuccessResponse(res, 200, report, "Sales report retrieved successfully");
   } catch (error) {
     next(error);

@@ -72,6 +72,14 @@ export type SalesReport = {
 
 export type PaymentMethod = "CASH" | "CARD_MANUAL" | "EASYPAISA" | "OTHER";
 
+export type RegisterSession = {
+  id: string;
+  staffId: string;
+  status: "OPEN" | "CLOSED";
+  openedAt: string;
+  closedAt: string | null;
+};
+
 export type OrderStates = {
   receipts: Receipt[];
   nextReceiptNumber: number;

@@ -14,6 +14,7 @@ import { useReactToPrint } from "react-to-print";
 import { useCartStore, useCartActions } from "@/store/cart.store";
 import { formatPaisa, cn } from "@/lib/utils";
 import { useCreateOrder } from "@/lib/hooks/order.hooks";
+import { useCurrentSession } from "@/lib/hooks/session.hooks";
 import { toReceipt } from "@/lib/services/order.service";
 import PrintReceipt from "./print-receipt";
 import { Receipt as ReceiptType, OrderType } from "@/types";
@@ -50,6 +51,7 @@ const ReceiptPanel = () => {
   const { cartItems } = useCartStore();
   const { updateQuantity, removeItem, clearCartStore } = useCartActions();
   const createOrderMutation = useCreateOrder();
+  const currentSessionQuery = useCurrentSession();
 
   const [orderType, setOrderType] = useState<OrderType>("DINE_IN");
   const [receiptToPrint, setReceiptToPrint] = useState<ReceiptType | null>(
@@ -94,7 +96,11 @@ const ReceiptPanel = () => {
   const totalPaisa = subtotalPaisa + taxPaisa;
 
   const handleGenerateReceipt = async () => {
-    if ((!pendingInput && cartArray.length === 0) || isPrinting) return;
+    if (
+      (!pendingInput && cartArray.length === 0) ||
+      isPrinting ||
+      !currentSessionQuery.data
+    ) return;
 
     setIsPrinting(true);
     try {
@@ -136,6 +142,11 @@ const ReceiptPanel = () => {
       ? "The server may have received this order. Retry without changing the cart to safely confirm it."
       : "Order was not created. Review the cart and try again."
     : null;
+  const sessionMessage = currentSessionQuery.isLoading
+    ? "Checking cashier session…"
+    : !currentSessionQuery.data
+      ? "Open a cashier session from the top bar before creating an order."
+      : null;
 
   return (
     <div className="flex h-full w-100 shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
@@ -275,7 +286,11 @@ const ReceiptPanel = () => {
 
         <button
           onClick={handleGenerateReceipt}
-          disabled={(cartArray.length === 0 && !pendingInput) || isPrinting}
+          disabled={
+            (cartArray.length === 0 && !pendingInput) ||
+            isPrinting ||
+            !currentSessionQuery.data
+          }
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-4 text-base font-semibold text-primary-foreground shadow-sm transition-transform active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
         >
           {isPrinting ? (
@@ -294,6 +309,9 @@ const ReceiptPanel = () => {
           <p role="alert" className="mt-3 text-sm text-destructive">
             {checkoutError}
           </p>
+        )}
+        {sessionMessage && (
+          <p className="mt-3 text-sm text-muted-foreground">{sessionMessage}</p>
         )}
       </div>
 

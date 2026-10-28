@@ -16,4 +16,5 @@ model Staff {
     orders    Order[]    @relation("OrderCreatedBy")
     payments  Payment[]
     auditLogs AuditLog[]
+    sessions  RegisterSession[]
 }

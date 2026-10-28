@@ -12,6 +12,7 @@ import productRoutes from "./product.routes";
 import authRoutes from "./auth.routes";
 import orderRoutes from "./order.routes";
 import reportsRoutes from "./reports.routes";
+import sessionRoutes from "./session.routes";
 
 const router = Router();
 
@@ -31,5 +32,6 @@ router.use("/health", healthRoutes); // Mount health routes at /health
 router.use("/products", productRoutes); // Mount product routes at /products
 router.use("/orders", orderRoutes); // Mount order routes at /orders
 router.use("/reports", reportsRoutes); // Mount report routes at /reports
+router.use("/sessions", sessionRoutes); // Mount register-session routes at /sessions
 
 export default router;
