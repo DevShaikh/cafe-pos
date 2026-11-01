@@ -8,6 +8,17 @@ import { dateIsInRange, dateRangeIsValid, makeDateFilters } from "@/lib/date-ran
 import { formatPaisa } from "@/lib/utils";
 import type { OrderType } from "@/types";
 import { Banknote, Receipt, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const ReportsPage = () => {
   const { receipts } = useOrderStore();
@@ -65,49 +76,59 @@ const ReportsPage = () => {
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4">
-        <label className="grid gap-1 text-sm text-muted-foreground">
-          From
-          <input
+        <Field className="gap-1">
+          <FieldLabel htmlFor="reports-from-date">From</FieldLabel>
+          <Input
+            id="reports-from-date"
             type="date"
             value={fromDate}
             onChange={(event) => setFromDate(event.target.value)}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-foreground"
+            className="h-10 w-auto"
           />
-        </label>
-        <label className="grid gap-1 text-sm text-muted-foreground">
-          Cashier session
-          <select
-            value={sessionId}
-            onChange={(event) => setSessionId(event.target.value)}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-foreground"
+        </Field>
+        <Field className="gap-1">
+          <FieldLabel htmlFor="reports-session-id">Cashier session</FieldLabel>
+          <Select
+            value={sessionId || "all"}
+            onValueChange={(value) =>
+              setSessionId(value === "all" ? "" : value)
+            }
           >
-            <option value="">All sessions</option>
-            {(sessionsQuery.data ?? []).map((session) => (
-              <option key={session.id} value={session.id}>
-                {new Date(session.openedAt).toLocaleString("en-PK", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })} ({session.status.toLowerCase()})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm text-muted-foreground">
-          To
-          <input
+            <SelectTrigger id="reports-session-id" className="h-10 w-64">
+              <SelectValue placeholder="All sessions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All sessions</SelectItem>
+              {(sessionsQuery.data ?? []).map((session) => (
+                <SelectItem key={session.id} value={session.id}>
+                  {new Date(session.openedAt).toLocaleString("en-PK", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })} ({session.status.toLowerCase()})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field className="gap-1">
+          <FieldLabel htmlFor="reports-to-date">To</FieldLabel>
+          <Input
+            id="reports-to-date"
             type="date"
             value={toDate}
             onChange={(event) => setToDate(event.target.value)}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-foreground"
+            className="h-10 w-auto"
           />
-        </label>
+        </Field>
         {(fromDate || toDate || sessionId) && (
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => { setFromDate(""); setToDate(""); setSessionId(""); }}
-            className="rounded-lg px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10"
           >
             Clear dates
-          </button>
+          </Button>
         )}
       </div>
       {!validRange && (
@@ -137,15 +158,19 @@ const ReportsPage = () => {
             ["DINE_IN", "Dine in"],
             ["TAKEAWAY", "Takeaway"],
           ] as const).map(([type, label]) => (
-            <div key={type} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-              <p className="text-sm font-medium text-muted-foreground">{label}</p>
-              <p className="mt-3 text-2xl font-bold text-foreground">
-                {formatPaisa(orderTypeTotals[type].amount)}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {orderTypeTotals[type].count} paid orders
-              </p>
-            </div>
+            <Card key={type} className="rounded-2xl p-6 shadow-sm">
+              <CardContent className="p-0">
+                <p className="text-sm font-medium text-muted-foreground">
+                  {label}
+                </p>
+                <p className="mt-3 text-2xl font-bold text-foreground">
+                  {formatPaisa(orderTypeTotals[type].amount)}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {orderTypeTotals[type].count} paid orders
+                </p>
+              </CardContent>
+            </Card>
           ))}
         </div>
       </section>
@@ -163,15 +188,19 @@ function SummaryCard({
   icon: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-muted-foreground">{title}</p>
-        <div className="rounded-full bg-primary/10 p-2 text-primary">{icon}</div>
-      </div>
-      <div className="mt-4">
-        <h3 className="text-3xl font-bold text-foreground">{value}</h3>
-      </div>
-    </div>
+    <Card className="rounded-2xl p-6 shadow-sm">
+      <CardContent className="p-0">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <div className="rounded-full bg-primary/10 p-2 text-primary">
+            {icon}
+          </div>
+        </div>
+        <div className="mt-4">
+          <h3 className="text-3xl font-bold text-foreground">{value}</h3>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
