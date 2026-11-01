@@ -2,7 +2,7 @@
 
 **Status basis:** Current repository source, the existing consolidated audit, and available project documentation  
 **Last reviewed:** 2026-11-01  
-**Review type:** Source review, targeted browser verification, and requested quality checks.
+**Review type:** Source review, targeted browser verification, and requested quality checks; focused login and Orders UI follow-up verified on 2026-11-01.
 
 > Read this document before beginning a new project task. Verify relevant details against current source before editing; this is a continuity aid, not a substitute for source review.
 
@@ -30,12 +30,15 @@ The following are supported by current source and/or verification completed on 2
 - Product-list query parameters are Zod-validated; repeated/invalid filters return a 400 instead of reaching the service as malformed values. The API hides unavailable products unless explicitly asked to include them.
 - Product prices and server order/payment amounts use integer paisa. The API returns `pricePaisa`; display formatting occurs in the client.
 - Staff list, PIN login, current-session lookup, cookie logout, and authenticated route gating are implemented. The login form now binds its visible default staff choice to the submitted ID; wrong credentials remain rejected, and the browser session survives a reload.
+- Login uses four masked shadcn OTP slots for the required numeric PIN. Sign-in remains disabled until all four digits are entered and while a request is pending; changing staff clears the prior PIN and error. The login card was refined for hierarchy and narrow-screen fit. These UI states and invalid-credential feedback were checked in-browser; successful authentication behavior was verified in the prior production-browser pass.
 - Cashier register sessions support opening, current/history lookup, and closing; checkout requires an open session and closing is blocked while unpaid orders remain.
 - New checkout sends product IDs, quantities, order type, and an idempotency key. The server checks availability, reads settings, calculates totals, allocates a receipt number, stores product snapshots, and writes order, event, audit, counter, and idempotency data transactionally.
 - Manual payment recording updates unpaid server orders with a selected method. Server-backed order history supports cursor pagination/date filters; sales reports aggregate paid orders with date/session filters.
 - Orders and Reports also show historical receipts persisted in the browser. Their payment state remains local; they are not converted into server records automatically.
 - Receipt printing uses `react-to-print` and a custom 80mm template through the browser print UI; print failures now retain the created receipt and expose a retry action.
-- Client login, catalog, orders, reports, and receipt controls use the existing shadcn Button/Input and newly added Field/Select/Card/Badge primitives. The configured shadcn registry does not provide the legacy Form wrapper; forms use the official Field pattern and existing Zod validation.
+- Client login, catalog, orders, reports, and receipt controls use shadcn Button/Input and Field/Select/Card/Badge primitives. Login additionally uses the official OTP input and Alert components; the `input-otp` dependency was added through the configured shadcn CLI. The configured shadcn registry does not provide the legacy Form wrapper; forms use the official Field pattern and existing Zod validation.
+- The Orders page restores horizontal, wrapping order cards after adopting the shadcn Card primitive. The shared content shell and navbar now shrink at narrower desktop widths rather than overflowing. Date filters remain usable in the narrower content area.
+- Checkout now presents a prominent cashier-session-required notice with instructions to open a session from the top bar. Session-check failures are distinguished from a confirmed closed session and include a retry action.
 - Central API error handling, structured success/error shapes, Zod schemas for key requests, Helmet, configured CORS, and server tests exist.
 
 ## Incomplete features
@@ -66,6 +69,9 @@ The following are supported by current source and/or verification completed on 2
 ### Functionality and reliability
 
 - **Resolved 2026-11-01:** The login dropdown displayed its first staff member while its controlled state remained empty; submit therefore sent an empty ID and the API returned `400 Invalid UUID`. The selected ID is now derived from the active staff query, and browser checks confirmed invalid-credential rejection, successful redirect, and session persistence.
+- **Resolved 2026-11-01:** The Orders page's order-card layout regressed because shadcn Card defaults to a column flex direction; cards now explicitly use a horizontal wrapping layout. The main shell/header also had a narrow-screen width overflow, which is corrected. Follow-up browser checks confirmed card/filter bounds at a 900px viewport.
+- **Resolved 2026-11-01:** Login did not clearly communicate its disabled state and used a plain password field. It now requires a complete four-digit numeric PIN in four masked shadcn OTP slots, clears PIN/error when staff changes, and explains the incomplete state. Browser checks verified partial PIN remains disabled, complete PIN enables submit, and invalid credentials display an error.
+- **Resolved 2026-11-01:** Checkout's closed-session prerequisite was easy to miss. The receipt panel now prominently explains how to open a cashier session and provides retry guidance if session status cannot be fetched. The closed-session notice was confirmed in the browser.
 - **Resolved 2026-11-01:** Catalog search/category controls were inert, unavailable products could be added, and repeated product query parameters were not validated. Search/category filtering, unavailable-product UI/API handling, and Zod query validation are now implemented.
 - Client checkout displays fixed 8% tax while server totals use the persisted setting.
 - The error middleware explicitly maps malformed JSON but may classify other parser errors (for example oversized bodies) as generic 500 responses.
@@ -110,6 +116,7 @@ The following are supported by current source and/or verification completed on 2
 - Only discovered test file: `server/src/app.test.ts`, using Node’s built-in runner.
 - Current test cases cover health success/failure, a Helmet header, configured CORS, unknown-route JSON, malformed JSON, masking unexpected errors, repeated product-filter rejection, and unavailable-product API filtering.
 - **Verified 2026-11-01:** `npm run lint`, `npm run typecheck`, `npm run test` (9 passing), and `npm run build` passed. Production-browser checks covered login validation/rejection/success/session persistence, catalog search/category/empty-state behavior, and order/report filter controls.
+- **Verified 2026-11-01 follow-up:** `npm run lint --prefix client`, `npm run typecheck --prefix client`, and `npm run build --prefix client` passed after the login OTP, Orders layout, and session guidance changes. Browser checks covered login button state and masked PIN at desktop/mobile sizes, invalid-credential feedback, Orders layout at 900px, and the closed-session checkout notice. The browser test used a stubbed API for login UI and session-required presentation; it was not a new successful-authentication integration test.
 - No client automated tests were found. Automated coverage remains absent for order totals, payment transitions, idempotency replay/conflict, cashier session constraints, migration preservation, seed safety, print failure/retry, and backup restoration. The receipt print-failure flow was not manually exercised because browser print dialogs are not available in the automated browser session.
 - No performance or backup/restore exercise was run. The previous `npm audit` scan is historical and was not repeated for this update.
 
@@ -161,4 +168,4 @@ Continue to treat current source as authoritative for behavior. Use this documen
 - The server owns new order totals, receipt numbers, payments, and snapshots. Preserve legacy local receipts deliberately until an archive/import policy is chosen.
 - Orders print when created, before payment; payments are manual confirmations, not payment-gateway transactions.
 - Preserve committed Prisma migration history. Back up and test against a copy before risky schema changes.
-- The 2026-11-01 documentation refresh and this task's implementation are reflected in this status document. No new dependencies were added; prior changes elsewhere in the worktree were left untouched.
+- The 2026-11-01 documentation refresh and subsequent UI follow-up are reflected in this status document. The follow-up added the `input-otp` client dependency via the configured shadcn CLI; unrelated worktree changes were left untouched.

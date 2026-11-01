@@ -9,9 +9,9 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     >
       <div className="flex h-screen w-full overflow-hidden bg-background">
         <Sidebar />
-        <SidebarInset className="bg-background">
+        <SidebarInset className="min-w-0 bg-background">
           <Navbar />
-          <main className="flex-1 overflow-y-auto p-6">{children}</main>
+          <main className="min-w-0 flex-1 overflow-y-auto p-6">{children}</main>
         </SidebarInset>
       </div>
     </SidebarProvider>

@@ -77,16 +77,16 @@ const Navbar = () => {
   };
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-6">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-3 md:px-4 xl:px-6">
       {/* Left side: Page Context */}
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 items-center gap-2 xl:gap-4">
         <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-        <div className="h-4 w-px bg-border" />
-        <h1 className="text-lg font-bold tracking-tight text-foreground">
+        <div className="hidden h-4 w-px bg-border sm:block" />
+        <h1 className="whitespace-nowrap text-base font-bold tracking-tight text-foreground lg:text-lg">
           {getPageTitle()}
         </h1>
-        <div className="h-4 w-px bg-border" />
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+        <div className="hidden h-4 w-px bg-border xl:block" />
+        <div className="hidden items-center gap-1.5 text-xs font-semibold text-muted-foreground xl:flex">
           <CircleDot
             size={10}
             className={currentSessionQuery.data ? "animate-pulse text-green-600 dark:text-green-400" : "text-muted-foreground"}
@@ -96,14 +96,14 @@ const Navbar = () => {
       </div>
 
       {/* Right side: Utilities */}
-      <div className="flex items-center gap-5">
-        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+      <div className="flex shrink-0 items-center gap-2 xl:gap-5">
+        <div className="hidden items-center gap-2 text-sm font-medium text-muted-foreground xl:flex">
           <span>{time || "--:--"}</span>
           <span className="text-border">|</span>
           <span className="font-bold">PKR</span>
         </div>
 
-        <div className="h-6 w-px bg-border" />
+        <div className="hidden h-6 w-px bg-border xl:block" />
 
         <ModeToggle />
 
@@ -113,7 +113,7 @@ const Navbar = () => {
           disabled={sessionPending || currentSessionQuery.isLoading}
           variant="outline"
           size="sm"
-          className="text-xs font-semibold"
+          className="whitespace-nowrap text-xs font-semibold"
         >
           {sessionPending
             ? "Saving…"
@@ -123,7 +123,7 @@ const Navbar = () => {
         </Button>
 
         <div className="flex items-center gap-2.5">
-          <div className="flex-col items-end hidden sm:flex">
+          <div className="hidden flex-col items-end xl:flex">
             <span className="text-xs font-bold text-foreground">
               {staff?.name ?? "Cashier"}
             </span>

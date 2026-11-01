@@ -81,7 +81,7 @@ const OrdersPage = () => {
     return (
       <Card
         key={receipt.id}
-        className="flex flex-wrap items-center justify-between gap-4 rounded-2xl p-6 shadow-sm"
+        className="flex-row flex-wrap items-center justify-between gap-4 rounded-2xl p-6 shadow-sm"
       >
         <div className="flex items-center gap-6">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
@@ -159,26 +159,26 @@ const OrdersPage = () => {
   };
 
   return (
-    <div className="flex h-full flex-col gap-6 overflow-y-auto">
+    <div className="flex h-full min-w-0 flex-col gap-6 overflow-y-auto">
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4">
-        <Field className="gap-1">
+        <Field className="w-full gap-1 sm:w-44">
           <FieldLabel htmlFor="orders-from-date">From</FieldLabel>
           <Input
             id="orders-from-date"
             type="date"
             value={fromDate}
             onChange={(event) => setFromDate(event.target.value)}
-            className="h-10 w-auto"
+            className="h-10 w-full"
           />
         </Field>
-        <Field className="gap-1">
+        <Field className="w-full gap-1 sm:w-44">
           <FieldLabel htmlFor="orders-to-date">To</FieldLabel>
           <Input
             id="orders-to-date"
             type="date"
             value={toDate}
             onChange={(event) => setToDate(event.target.value)}
-            className="h-10 w-auto"
+            className="h-10 w-full"
           />
         </Field>
         {(fromDate || toDate) && (

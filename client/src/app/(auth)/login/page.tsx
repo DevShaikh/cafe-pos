@@ -5,7 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { z } from "zod";
-import { LoaderCircle, LogIn } from "lucide-react";
+import { Coffee, LoaderCircle, LogIn } from "lucide-react";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { authKeys, useCurrentStaff } from "@/lib/hooks/auth.hooks";
 import { getActiveStaff, login } from "@/lib/services/auth.service";
 import { Badge } from "@/components/ui/badge";
@@ -13,11 +14,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 import {
   Select,
   SelectContent,
@@ -28,7 +34,7 @@ import {
 
 const loginFormSchema = z.object({
   staffId: z.uuid("Select an active staff member."),
-  pin: z.string().min(4, "PIN must be at least 4 characters."),
+  pin: z.string().regex(/^\d{4}$/, "Enter your 4-digit PIN."),
 });
 
 const LoginPage = () => {
@@ -55,6 +61,7 @@ const LoginPage = () => {
     staffQuery.data?.find(({ id }) => id === preferredStaffId)?.id ??
     staffQuery.data?.[0]?.id ??
     "";
+  const canSubmit = Boolean(staffId) && /^\d{4}$/.test(pin);
 
   const loginMutation = useMutation({
     mutationFn: login,
@@ -100,13 +107,25 @@ const LoginPage = () => {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-6">
-      <Card className="w-full max-w-sm gap-0 rounded-2xl p-8 shadow-sm">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-5 py-10">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(ellipse_at_top,var(--color-primary),transparent_68%)] opacity-20"
+      />
+      <Card className="relative w-full max-w-md gap-0 rounded-3xl border-border/80 p-7 shadow-xl shadow-foreground/5 sm:p-9">
         <CardContent className="p-0">
-          <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold tracking-tight">Cafe POS</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Sign in with your staff PIN to open the register.
+          <div className="mb-8 flex flex-col items-center text-center">
+            <div className="mb-5 flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+              <Coffee className="size-6" aria-hidden="true" />
+            </div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Cafe POS
+            </p>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              Welcome back
+            </h1>
+            <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
+              Choose your staff account and enter your PIN to open the register.
             </p>
           </div>
 
@@ -130,18 +149,26 @@ const LoginPage = () => {
             </div>
           ) : (
             <form
-              className="space-y-4"
+              className="space-y-6"
               onSubmit={handleSubmit}
               aria-busy={loginMutation.isPending}
               noValidate
             >
               <FieldGroup>
                 <Field data-invalid={Boolean(fieldErrors.staffId)}>
-                  <FieldLabel htmlFor="staffId">Staff member</FieldLabel>
+                  <FieldLabel
+                    htmlFor="staffId"
+                    className="text-sm font-semibold"
+                  >
+                    Staff member
+                  </FieldLabel>
                   <Select
                     value={staffId}
+                    disabled={loginMutation.isPending}
                     onValueChange={(value) => {
                       setPreferredStaffId(value);
+                      setPin("");
+                      setErrorMessage("");
                       setFieldErrors((current) => ({
                         ...current,
                         staffId: undefined,
@@ -150,7 +177,7 @@ const LoginPage = () => {
                   >
                     <SelectTrigger
                       id="staffId"
-                      className="h-11 w-full"
+                      className="h-12 w-full rounded-xl"
                       aria-invalid={Boolean(fieldErrors.staffId)}
                       aria-describedby={
                         fieldErrors.staffId ? "staffId-error" : undefined
@@ -172,25 +199,59 @@ const LoginPage = () => {
                 </Field>
 
                 <Field data-invalid={Boolean(fieldErrors.pin)}>
-                  <FieldLabel htmlFor="pin">PIN</FieldLabel>
-                  <Input
+                  <FieldLabel
+                    htmlFor="pin"
+                    className="text-sm font-semibold"
+                  >
+                    4-digit PIN
+                  </FieldLabel>
+                  <InputOTP
                     id="pin"
-                    required
-                    type="password"
+                    maxLength={4}
+                    pattern={REGEXP_ONLY_DIGITS}
                     inputMode="numeric"
-                    autoComplete="current-password"
+                    autoComplete="one-time-code"
                     value={pin}
-                    onChange={(event) => {
-                      setPin(event.target.value);
+                    disabled={loginMutation.isPending}
+                    containerClassName="w-full justify-center"
+                    onChange={(value) => {
+                      setPin(value);
+                      setErrorMessage("");
                       setFieldErrors((current) => ({
                         ...current,
                         pin: undefined,
                       }));
                     }}
-                    className="h-11"
+                    aria-label="4-digit PIN"
                     aria-invalid={Boolean(fieldErrors.pin)}
-                    aria-describedby={fieldErrors.pin ? "pin-error" : undefined}
-                  />
+                    aria-describedby={
+                      fieldErrors.pin ? "pin-error" : "pin-description"
+                    }
+                  >
+                    <InputOTPGroup
+                      aria-hidden="true"
+                      className="gap-3 rounded-none"
+                    >
+                      {Array.from({ length: 4 }, (_, index) => (
+                        <InputOTPSlot
+                          key={index}
+                          index={index}
+                          mask
+                          className="size-14 rounded-xl border first:border-l bg-background text-xl font-semibold shadow-xs data-[active=true]:border-ring data-[active=true]:bg-primary/5"
+                        />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                  {!fieldErrors.pin && (
+                    <FieldDescription
+                      id="pin-description"
+                      className="text-center"
+                    >
+                      {canSubmit
+                        ? "PIN entered. Sign in when ready."
+                        : "Enter all 4 digits to enable sign in."}
+                    </FieldDescription>
+                  )}
                   <FieldError id="pin-error">{fieldErrors.pin}</FieldError>
                 </Field>
               </FieldGroup>
@@ -203,16 +264,24 @@ const LoginPage = () => {
 
               <Button
                 type="submit"
-                disabled={loginMutation.isPending}
-                className="h-11 w-full"
+                disabled={
+                  loginMutation.isPending ||
+                  staffQuery.isLoading ||
+                  !canSubmit
+                }
+                className="h-12 w-full rounded-xl font-semibold shadow-sm"
               >
                 {loginMutation.isPending ? (
                   <LoaderCircle className="size-4 animate-spin" />
                 ) : (
                   <LogIn className="size-4" />
                 )}
-                Sign in
+                {loginMutation.isPending ? "Signing in…" : "Sign in"}
               </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                Use your assigned staff PIN. Access is recorded to this
+                register.
+              </p>
             </form>
           )}
         </CardContent>

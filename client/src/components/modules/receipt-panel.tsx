@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
+  CircleAlert,
   Receipt,
   CreditCard,
   Minus,
@@ -13,6 +14,11 @@ import {
 import { useReactToPrint } from "react-to-print";
 import { useCartStore, useCartActions } from "@/store/cart.store";
 import { formatPaisa, cn } from "@/lib/utils";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useCreateOrder } from "@/lib/hooks/order.hooks";
@@ -160,12 +166,6 @@ const ReceiptPanel = () => {
       ? "The server may have received this order. Retry without changing the cart to safely confirm it."
       : "Order was not created. Review the cart and try again."
     : null;
-  const sessionMessage = currentSessionQuery.isLoading
-    ? "Checking cashier session…"
-    : !currentSessionQuery.data
-      ? "Open a cashier session from the top bar before creating an order."
-      : null;
-
   return (
     <Card className="flex h-full w-100 shrink-0 flex-col overflow-hidden rounded-2xl p-0 shadow-sm">
       <div className="border-b border-border p-6">
@@ -361,8 +361,42 @@ const ReceiptPanel = () => {
             </Button>
           </div>
         )}
-        {sessionMessage && (
-          <p className="mt-3 text-sm text-muted-foreground">{sessionMessage}</p>
+        {currentSessionQuery.isLoading && (
+          <p className="mt-3 text-sm text-muted-foreground" role="status">
+            Checking cashier session…
+          </p>
+        )}
+        {!currentSessionQuery.isLoading && currentSessionQuery.isError && (
+          <Alert variant="destructive" className="mt-3">
+            <CircleAlert aria-hidden="true" />
+            <AlertTitle>Cannot verify cashier session</AlertTitle>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+              <span>
+                Checkout is unavailable until the register session can be
+                checked.
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => currentSessionQuery.refetch()}
+              >
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        {!currentSessionQuery.isLoading &&
+          !currentSessionQuery.isError &&
+          !currentSessionQuery.data && (
+            <Alert className="mt-3 border-amber-500/40 bg-amber-500/5">
+              <CircleAlert aria-hidden="true" />
+              <AlertTitle>Cashier session required</AlertTitle>
+              <AlertDescription>
+                Open a cashier session with the “Open session” button in the
+                top bar to enable checkout and receipt printing.
+              </AlertDescription>
+            </Alert>
         )}
       </div>
 
