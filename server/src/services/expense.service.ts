@@ -1,8 +1,9 @@
 import { prismaClient } from "../lib/prismaClient";
+import type { Prisma } from "../generated/prisma/client.js";
 import type { ListExpensesInput, CreateExpenseInput } from "../schemas/expense";
 
 export async function listExpenses(input: ListExpensesInput) {
-  const where = {
+  const where: Prisma.ExpenseWhereInput = {
     ...(input.from || input.to
       ? {
           spentAt: {
@@ -12,6 +13,14 @@ export async function listExpenses(input: ListExpensesInput) {
         }
       : {}),
     ...(input.category ? { category: input.category } : {}),
+    ...(input.search
+      ? {
+          OR: [
+            { description: { contains: input.search } },
+            { note: { contains: input.search } },
+          ],
+        }
+      : {}),
   };
   const [rows, aggregate] = await prismaClient.$transaction([
     prismaClient.expense.findMany({

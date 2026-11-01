@@ -58,10 +58,14 @@ const PrintReceipt = forwardRef<HTMLDivElement, PrintReceiptProps>(
             <span>Subtotal</span>
             <span>{formatPaisa(receipt.subtotalPaisa)}</span>
           </div>
-          <div className="flex justify-between">
-            <span>Tax (8%)</span>
-            <span>{formatPaisa(receipt.taxPaisa)}</span>
-          </div>
+          {receipt.taxRateBps > 0 && (
+            <div className="flex justify-between">
+              <span>
+                Tax ({(receipt.taxRateBps / 100).toFixed(2).replace(/\.?0+$/, "")}%)
+              </span>
+              <span>{formatPaisa(receipt.taxPaisa)}</span>
+            </div>
+          )}
           <div className="flex justify-between border-t border-dashed border-black pt-2 text-sm font-bold">
             <span>TOTAL</span>
             <span>{formatPaisa(receipt.totalPaisa)}</span>

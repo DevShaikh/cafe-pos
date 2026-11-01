@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { useShallow } from "zustand/shallow";
 import { devtools, persist } from "zustand/middleware";
 import { Receipt, OrderStates, OrderType } from "@/types";
+import { createUuid } from "@/lib/utils";
 import { CartItem } from "./cart.store";
 
 type OrderActions = {
@@ -52,7 +53,7 @@ function migrateReceipt(value: unknown): Receipt {
   });
 
   return {
-    id: String(oldReceipt.id ?? crypto.randomUUID()),
+    id: String(oldReceipt.id ?? createUuid()),
     receiptNumber:
       typeof oldReceipt.receiptNumber === "number"
         ? oldReceipt.receiptNumber
@@ -114,7 +115,7 @@ const store = create<OrderStore>()(
 
             const newReceipt: Receipt = {
               ...data,
-              id: crypto.randomUUID(),
+              id: createUuid(),
               receiptNumber: currentReceiptNumber,
               status: "UNPAID",
               createdAt: new Date().toISOString(),

@@ -14,8 +14,20 @@ export type CreateOrderInput = {
   items: { productId: string; quantity: number }[];
 };
 
-export type OrderFilters = { from?: string; to?: string; sessionId?: string };
-export type OrdersPageParams = OrderFilters & {
+export type DateRangeFilters = {
+  from?: string;
+  to?: string;
+};
+
+export type OrderFilters = DateRangeFilters & {
+  sessionId?: string;
+};
+
+export type OrdersListFilters = DateRangeFilters & {
+  search?: string;
+  status?: "PLACED" | "PAID";
+};
+export type OrdersPageParams = OrdersListFilters & {
   cursor?: string | null;
   limit?: number;
 };
@@ -67,5 +79,6 @@ export function toReceipt(order: ServerOrder): Receipt {
     status: order.status === "PAID" ? "PAID" : order.status === "VOIDED" ? "VOIDED" : "UNPAID",
     createdAt: order.createdAt,
     paidAt: order.paidAt,
+    paymentMethod: order.payments[0]?.method,
   };
 }

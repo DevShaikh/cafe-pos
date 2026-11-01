@@ -19,6 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const ReportsPage = () => {
   const { receipts } = useOrderStore();
@@ -65,36 +73,52 @@ const ReportsPage = () => {
   }
 
   return (
-    <div className="flex h-full flex-col gap-6 overflow-y-auto pt-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+    <div className="flex min-h-full min-w-0 flex-col gap-5 pt-2">
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Sales Reports
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           Payments are grouped by the date they were recorded. Dates use this device&apos;s local timezone.
         </p>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4">
-        <Field className="gap-1">
-          <FieldLabel htmlFor="reports-from-date">From</FieldLabel>
+      <div className="grid items-end gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-2 xl:grid-cols-[190px_190px_minmax(260px,1fr)_auto]">
+        <Field className="gap-2">
+          <FieldLabel htmlFor="reports-from-date" className="text-sm font-semibold">
+            From
+          </FieldLabel>
           <Input
             id="reports-from-date"
             type="date"
             value={fromDate}
             onChange={(event) => setFromDate(event.target.value)}
-            className="h-10 w-auto"
+            className="h-11 w-full text-base"
           />
         </Field>
-        <Field className="gap-1">
-          <FieldLabel htmlFor="reports-session-id">Cashier session</FieldLabel>
+        <Field className="gap-2">
+          <FieldLabel htmlFor="reports-to-date" className="text-sm font-semibold">
+            To
+          </FieldLabel>
+          <Input
+            id="reports-to-date"
+            type="date"
+            value={toDate}
+            onChange={(event) => setToDate(event.target.value)}
+            className="h-11 w-full text-base"
+          />
+        </Field>
+        <Field className="gap-2">
+          <FieldLabel htmlFor="reports-session-id" className="text-sm font-semibold">
+            Cashier session
+          </FieldLabel>
           <Select
             value={sessionId || "all"}
             onValueChange={(value) =>
               setSessionId(value === "all" ? "" : value)
             }
           >
-            <SelectTrigger id="reports-session-id" className="h-10 w-64">
+            <SelectTrigger id="reports-session-id" className="h-11 w-full text-base">
               <SelectValue placeholder="All sessions" />
             </SelectTrigger>
             <SelectContent>
@@ -110,24 +134,14 @@ const ReportsPage = () => {
             </SelectContent>
           </Select>
         </Field>
-        <Field className="gap-1">
-          <FieldLabel htmlFor="reports-to-date">To</FieldLabel>
-          <Input
-            id="reports-to-date"
-            type="date"
-            value={toDate}
-            onChange={(event) => setToDate(event.target.value)}
-            className="h-10 w-auto"
-          />
-        </Field>
         {(fromDate || toDate || sessionId) && (
           <Button
             type="button"
             variant="ghost"
-            size="sm"
+            size="default"
             onClick={() => { setFromDate(""); setToDate(""); setSessionId(""); }}
           >
-            Clear dates
+            Clear filters
           </Button>
         )}
       </div>
@@ -146,32 +160,92 @@ const ReportsPage = () => {
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <SummaryCard title="Payments Collected" value={formatPaisa(totalPaisa)} icon={<Banknote size={20} />} />
-        <SummaryCard title="Paid Orders" value={String(totalOrders)} icon={<Receipt size={20} />} />
-        <SummaryCard title="Average Order" value={formatPaisa(averageOrderPaisa)} icon={<TrendingUp size={20} />} />
+        <SummaryCard
+          title="Payments collected"
+          value={formatPaisa(totalPaisa)}
+          detail="Across selected filters"
+          icon={<Banknote />}
+        />
+        <SummaryCard
+          title="Paid orders"
+          value={String(totalOrders)}
+          detail="Completed payments"
+          icon={<Receipt />}
+        />
+        <SummaryCard
+          title="Average order"
+          value={formatPaisa(averageOrderPaisa)}
+          detail="Collected per paid order"
+          icon={<TrendingUp />}
+        />
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-foreground">Sales by order type</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          {([
-            ["DINE_IN", "Dine in"],
-            ["TAKEAWAY", "Takeaway"],
-          ] as const).map(([type, label]) => (
-            <Card key={type} className="rounded-2xl p-6 shadow-sm">
-              <CardContent className="p-0">
-                <p className="text-sm font-medium text-muted-foreground">
-                  {label}
-                </p>
-                <p className="mt-3 text-2xl font-bold text-foreground">
-                  {formatPaisa(orderTypeTotals[type].amount)}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {orderTypeTotals[type].count} paid orders
-                </p>
-              </CardContent>
-            </Card>
-          ))}
+        <div>
+          <h2 className="text-xl font-semibold text-foreground">
+            Sales by order type
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Compare paid order volume and collected amounts.
+          </p>
+        </div>
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <Table className="text-base">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="h-12 px-4 text-sm">Order type</TableHead>
+                <TableHead className="h-12 px-4 text-right text-sm">
+                  Paid orders
+                </TableHead>
+                <TableHead className="h-12 px-4 text-right text-sm">
+                  Average order
+                </TableHead>
+                <TableHead className="h-12 px-4 text-right text-sm">
+                  Payments collected
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {([
+                ["DINE_IN", "Dine in"],
+                ["TAKEAWAY", "Takeaway"],
+              ] as const).map(([type, label]) => (
+                <TableRow key={type}>
+                  <TableCell className="px-4 py-4 font-medium">
+                    {label}
+                  </TableCell>
+                  <TableCell className="px-4 py-4 text-right tabular-nums">
+                    {orderTypeTotals[type].count}
+                  </TableCell>
+                  <TableCell className="px-4 py-4 text-right tabular-nums">
+                    {formatPaisa(
+                      orderTypeTotals[type].count > 0
+                        ? Math.round(
+                            orderTypeTotals[type].amount /
+                              orderTypeTotals[type].count,
+                          )
+                        : 0,
+                    )}
+                  </TableCell>
+                  <TableCell className="px-4 py-4 text-right font-semibold tabular-nums">
+                    {formatPaisa(orderTypeTotals[type].amount)}
+                  </TableCell>
+                </TableRow>
+              ))}
+              <TableRow className="bg-muted/40 font-semibold hover:bg-muted/40">
+                <TableCell className="px-4 py-4">Total</TableCell>
+                <TableCell className="px-4 py-4 text-right tabular-nums">
+                  {totalOrders}
+                </TableCell>
+                <TableCell className="px-4 py-4 text-right tabular-nums">
+                  {formatPaisa(averageOrderPaisa)}
+                </TableCell>
+                <TableCell className="px-4 py-4 text-right tabular-nums">
+                  {formatPaisa(totalPaisa)}
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
         </div>
       </section>
     </div>
@@ -181,23 +255,28 @@ const ReportsPage = () => {
 function SummaryCard({
   title,
   value,
+  detail,
   icon,
 }: {
   title: string;
   value: string;
+  detail: string;
   icon: ReactNode;
 }) {
   return (
-    <Card className="rounded-2xl p-6 shadow-sm">
-      <CardContent className="p-0">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <div className="rounded-full bg-primary/10 p-2 text-primary">
+    <Card className="rounded-2xl shadow-sm">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-muted-foreground">{title}</p>
+            <h3 className="text-3xl font-bold tracking-tight text-foreground">
+              {value}
+            </h3>
+            <p className="text-sm text-muted-foreground">{detail}</p>
+          </div>
+          <div className="rounded-xl bg-primary/10 p-3 text-primary">
             {icon}
           </div>
-        </div>
-        <div className="mt-4">
-          <h3 className="text-3xl font-bold text-foreground">{value}</h3>
         </div>
       </CardContent>
     </Card>

@@ -34,6 +34,10 @@ let originalCategoryFindUnique: typeof prismaClient.category.findUnique;
 let originalCategoryCreate: typeof prismaClient.category.create;
 let originalCategoryUpdate: typeof prismaClient.category.update;
 let originalCategoryDelete: typeof prismaClient.category.delete;
+let originalOrderFindMany: typeof prismaClient.order.findMany;
+let originalOrderCount: typeof prismaClient.order.count;
+let originalExpenseFindMany: typeof prismaClient.expense.findMany;
+let originalExpenseAggregate: typeof prismaClient.expense.aggregate;
 let originalTransaction: typeof prismaClient.$transaction;
 
 before(async () => {
@@ -62,6 +66,10 @@ before(async () => {
   originalCategoryCreate = prismaClient.category.create;
   originalCategoryUpdate = prismaClient.category.update;
   originalCategoryDelete = prismaClient.category.delete;
+  originalOrderFindMany = prismaClient.order.findMany;
+  originalOrderCount = prismaClient.order.count;
+  originalExpenseFindMany = prismaClient.expense.findMany;
+  originalExpenseAggregate = prismaClient.expense.aggregate;
   originalTransaction = prismaClient.$transaction;
 
   server = app.listen(0);
@@ -90,6 +98,10 @@ afterEach(() => {
   prismaClient.category.create = originalCategoryCreate;
   prismaClient.category.update = originalCategoryUpdate;
   prismaClient.category.delete = originalCategoryDelete;
+  prismaClient.order.findMany = originalOrderFindMany;
+  prismaClient.order.count = originalOrderCount;
+  prismaClient.expense.findMany = originalExpenseFindMany;
+  prismaClient.expense.aggregate = originalExpenseAggregate;
   prismaClient.$transaction = originalTransaction;
 });
 
@@ -127,6 +139,11 @@ function mockTransaction() {
   prismaClient.$transaction = ((
     operation: (transaction: typeof prismaClient) => Promise<unknown>,
   ) => operation(prismaClient)) as unknown as typeof prismaClient.$transaction;
+}
+
+function mockArrayTransaction() {
+  prismaClient.$transaction = (async (operations: Promise<unknown>[]) =>
+    Promise.all(operations)) as unknown as typeof prismaClient.$transaction;
 }
 
 test("GET /api/health returns 200 when the database is reachable", async () => {
@@ -170,6 +187,67 @@ test("product list filters unavailable products unless explicitly included", asy
   }
 
   assert.deepEqual(whereValues, [{ isAvailable: true }, {}]);
+});
+
+test("order search filters order results, unpaid count, and total count by receipt number", async () => {
+  const token = mockAuthenticatedStaff();
+  mockArrayTransaction();
+  const resultFilters: unknown[] = [];
+  const countFilters: unknown[] = [];
+  prismaClient.order.findMany = (async (args) => {
+    resultFilters.push(args?.where);
+    return [];
+  }) as typeof prismaClient.order.findMany;
+  prismaClient.order.count = (async (args) => {
+    countFilters.push(args?.where);
+    return 0;
+  }) as typeof prismaClient.order.count;
+
+  const response = await fetch(
+    `${baseUrl}/api/orders?search=R-104&status=PLACED`,
+    headers: { Cookie: `pos_session=${token}` },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(resultFilters, [
+    { receiptNumber: { contains: "R-104" }, status: "PLACED" },
+  ]);
+  assert.deepEqual(countFilters, [
+    { receiptNumber: { contains: "R-104" }, status: "PLACED" },
+    { receiptNumber: { contains: "R-104" }, status: "PLACED" },
+    { receiptNumber: { contains: "R-104" }, status: "PLACED" },
+  ]);
+});
+
+test("expense search filters description, note, and the total aggregate", async () => {
+  const token = mockAuthenticatedStaff();
+  mockArrayTransaction();
+  const resultFilters: unknown[] = [];
+  const aggregateFilters: unknown[] = [];
+  prismaClient.expense.findMany = (async (args) => {
+    resultFilters.push(args?.where);
+    return [];
+  }) as typeof prismaClient.expense.findMany;
+  prismaClient.expense.aggregate = (async (
+    args: Parameters<typeof prismaClient.expense.aggregate>[0],
+  ) => {
+    aggregateFilters.push(args?.where);
+    return { _sum: { amountPaisa: null }, _count: { _all: 0 } };
+  }) as unknown as typeof prismaClient.expense.aggregate;
+
+  const response = await fetch(`${baseUrl}/api/expenses?search=Milk`, {
+    headers: { Cookie: `pos_session=${token}` },
+  });
+
+  const expectedWhere = {
+    OR: [
+      { description: { contains: "Milk" } },
+      { note: { contains: "Milk" } },
+    ],
+  };
+  assert.equal(response.status, 200);
+  assert.deepEqual(resultFilters, [expectedWhere]);
+  assert.deepEqual(aggregateFilters, [expectedWhere]);
 });
 
 test("category management requires an authenticated cashier", async () => {

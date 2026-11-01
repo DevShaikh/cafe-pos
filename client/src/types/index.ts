@@ -29,6 +29,7 @@ export type Receipt = {
   taxRateBps: number;
   orderType: OrderType;
   status: "PAID" | "UNPAID" | "VOIDED";
+  paymentMethod?: PaymentMethod;
   createdAt: string;
   paidAt: string | null;
 };
@@ -44,6 +45,11 @@ export type ServerOrder = {
   taxRateBps: number;
   createdAt: string;
   paidAt: string | null;
+  payments: {
+    method: PaymentMethod;
+    amountPaisa: number;
+    createdAt: string;
+  }[];
   items: {
     id: string;
     productId: string | null;
@@ -58,6 +64,7 @@ export type OrdersPage = {
   hasMore: boolean;
   nextCursor: string | null;
   unpaidCount: number;
+  totalCount: number;
 };
 
 export type SalesReport = {

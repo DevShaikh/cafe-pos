@@ -28,6 +28,7 @@ export type ExpenseFilters = {
   from?: string;
   to?: string;
   category?: ExpenseCategory;
+  search?: string;
 };
 
 export type ExpensePageParams = ExpenseFilters & {

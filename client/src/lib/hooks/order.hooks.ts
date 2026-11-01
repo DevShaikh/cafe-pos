@@ -11,12 +11,13 @@ import {
   recordOrderPayment,
   type CreateOrderInput,
   type OrderFilters,
+  type OrdersListFilters,
 } from "@/lib/services/order.service";
 import type { PaymentMethod } from "@/types";
 
 export const orderKeys = {
   all: ["orders"] as const,
-  pages: (filters: OrderFilters) => ["orders", "pages", filters] as const,
+  pages: (filters: OrdersListFilters) => ["orders", "pages", filters] as const,
   sales: (filters: OrderFilters) => ["reports", "sales", filters] as const,
 };
 
@@ -28,12 +29,12 @@ export function useOrders() {
   });
 }
 
-export function useInfiniteOrders(filters: OrderFilters, enabled = true) {
+export function useInfiniteOrders(filters: OrdersListFilters, enabled = true) {
   return useInfiniteQuery({
     queryKey: orderKeys.pages(filters),
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam, signal }) =>
-      (await getOrders({ ...filters, cursor: pageParam, limit: 50 }, signal))
+      (await getOrders({ ...filters, cursor: pageParam, limit: 20 }, signal))
         .data.data,
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.nextCursor : undefined,

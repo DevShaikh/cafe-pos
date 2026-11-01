@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 import { useCartStore, useCartActions } from "@/store/cart.store";
-import { formatPaisa, cn } from "@/lib/utils";
+import { createUuid, formatPaisa, cn } from "@/lib/utils";
 import {
   Alert,
   AlertDescription,
@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useCreateOrder } from "@/lib/hooks/order.hooks";
 import { useCurrentSession } from "@/lib/hooks/session.hooks";
+import { useTaxSettings } from "@/lib/hooks/settings.hooks";
 import { toReceipt } from "@/lib/services/order.service";
 import PrintReceipt from "./print-receipt";
 import { Receipt as ReceiptType, OrderType } from "@/types";
@@ -36,14 +37,14 @@ function getIdempotencyKey(signature: string) {
       const pending = JSON.parse(saved) as { signature?: string; key?: string };
       if (pending.signature === signature && pending.key) return pending.key;
     }
-    const key = crypto.randomUUID();
+    const key = createUuid();
     sessionStorage.setItem(
       PENDING_ORDER_KEY,
       JSON.stringify({ signature, key }),
     );
     return key;
   } catch {
-    return crypto.randomUUID();
+    return createUuid();
   }
 }
 
@@ -60,6 +61,7 @@ const ReceiptPanel = () => {
   const { updateQuantity, removeItem, clearCartStore } = useCartActions();
   const createOrderMutation = useCreateOrder();
   const currentSessionQuery = useCurrentSession();
+  const taxSettingsQuery = useTaxSettings();
 
   const [orderType, setOrderType] = useState<OrderType>("DINE_IN");
   const [receiptToPrint, setReceiptToPrint] = useState<ReceiptType | null>(
@@ -107,7 +109,9 @@ const ReceiptPanel = () => {
     return sum + item.pricePaisa * item.quantity;
   }, 0);
 
-  const taxRateBps = 800;
+  const taxRateBps = taxSettingsQuery.data?.taxEnabled
+    ? taxSettingsQuery.data.taxRateBps
+    : 0;
   const taxPaisa = Math.round((subtotalPaisa * taxRateBps) / 10000);
   const totalPaisa = subtotalPaisa + taxPaisa;
 
@@ -115,7 +119,8 @@ const ReceiptPanel = () => {
     if (
       (!pendingInput && cartArray.length === 0) ||
       isPrinting ||
-      !currentSessionQuery.data
+      !currentSessionQuery.data ||
+      !taxSettingsQuery.data
     ) return;
 
     setIsPrinting(true);
@@ -307,7 +312,13 @@ const ReceiptPanel = () => {
             <span>{formatPaisa(subtotalPaisa)}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
-            <span>Tax (8%)</span>
+            <span>
+              {taxSettingsQuery.isPending
+                ? "Tax settings loading…"
+                : taxRateBps > 0
+                  ? `Tax (${(taxRateBps / 100).toFixed(2).replace(/\.?0+$/, "")}%)`
+                  : "Tax (off)"}
+            </span>
             <span>{formatPaisa(taxPaisa)}</span>
           </div>
           <div className="flex justify-between border-t border-border pt-3 text-lg font-bold text-foreground">
@@ -322,7 +333,8 @@ const ReceiptPanel = () => {
           disabled={
             (cartArray.length === 0 && !pendingInput) ||
             isPrinting ||
-            !currentSessionQuery.data
+            !currentSessionQuery.data ||
+            !taxSettingsQuery.data
           }
           size="lg"
           className="h-auto w-full rounded-xl px-4 py-4 text-base shadow-sm transition-transform active:scale-[0.98]"
@@ -343,6 +355,26 @@ const ReceiptPanel = () => {
           <p role="alert" className="mt-3 text-sm text-destructive">
             {checkoutError}
           </p>
+        )}
+        {taxSettingsQuery.isError && (
+          <Alert variant="destructive" className="mt-3">
+            <CircleAlert aria-hidden="true" />
+            <AlertTitle>Cannot load tax settings</AlertTitle>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+              <span>
+                Checkout is unavailable until the saved tax setting can be
+                loaded.
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => taxSettingsQuery.refetch()}
+              >
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
         )}
         {printError && (
           <div

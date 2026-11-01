@@ -1,19 +1,37 @@
 "use client";
 
 import axios from "axios";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import {
   Calculator,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   LoaderCircle,
   Plus,
+  Search,
+  X,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -31,6 +49,7 @@ import {
 import { formatPaisa } from "@/lib/utils";
 
 const MAX_AMOUNT_PAISA = 2_147_483_647;
+const EXPENSES_PER_PAGE = 10;
 
 function amountToPaisa(value: string): number | null {
   const match = /^(\d{1,8})(?:\.(\d{1,2}))?$/.exec(value.trim());
@@ -79,7 +98,9 @@ const ExpensesPage = () => {
   const [savedMessage, setSavedMessage] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | "">("");
+  const [pageIndex, setPageIndex] = useState(0);
 
   useEffect(() => {
     setSpentAt(localDateTimeValue());
@@ -89,16 +110,22 @@ const ExpensesPage = () => {
   const filters = {
     ...makeDateFilters(fromDate, toDate),
     ...(categoryFilter ? { category: categoryFilter } : {}),
+    ...(search.trim() ? { search: search.trim() } : {}),
   };
   const expensesQuery = useInfiniteExpenses(filters, validRange);
   const createMutation = useCreateExpense();
   const firstPage = expensesQuery.data?.pages[0];
   const expenses = expensesQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const currentExpenses = expenses.slice(
+    pageIndex * EXPENSES_PER_PAGE,
+    (pageIndex + 1) * EXPENSES_PER_PAGE,
+  );
   const hasLoadedResults =
     validRange && !expensesQuery.isPending && !expensesQuery.isError;
 
   function setDatePreset(preset: "today" | "month") {
     const today = localDateValue();
+    setPageIndex(0);
     if (preset === "today") {
       setFromDate(today);
       setToDate(today);
@@ -110,12 +137,15 @@ const ExpensesPage = () => {
   }
 
   function clearFilters() {
+    setPageIndex(0);
     setFromDate("");
     setToDate("");
     setCategoryFilter("");
+    setSearch("");
   }
 
   function setExpenseCategoryFilter(value: string) {
+    setPageIndex(0);
     setCategoryFilter(
       expenseCategories.find((option) => option.value === value)?.value ?? "",
     );
@@ -154,6 +184,7 @@ const ExpensesPage = () => {
       },
       {
         onSuccess: () => {
+          setPageIndex(0);
           setDescription("");
           setAmount("");
           setSpentAt(localDateTimeValue());
@@ -322,34 +353,72 @@ const ExpensesPage = () => {
 
         <section className="min-w-0 space-y-3">
           <Card className="rounded-2xl py-0 shadow-sm">
-            <CardContent className="flex flex-wrap items-end gap-3 p-4">
-              <Field className="min-w-36 flex-1 gap-1">
+            <CardContent className="grid grid-cols-1 items-end gap-3 p-4 md:grid-cols-2 2xl:grid-cols-12">
+              <Field className="gap-1 2xl:col-span-4">
+                <FieldLabel htmlFor="expenses-search">Search expenses</FieldLabel>
+                <div className="relative">
+                  <Search
+                    aria-hidden="true"
+                    className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <Input
+                    id="expenses-search"
+                    type="search"
+                    maxLength={100}
+                    placeholder="Description or note"
+                    value={search}
+                    onChange={(event) => {
+                      setSearch(event.target.value);
+                      setPageIndex(0);
+                    }}
+                    className="pl-9 pr-9"
+                  />
+                  {search && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label="Clear expense search"
+                      onClick={() => {
+                        setSearch("");
+                        setPageIndex(0);
+                      }}
+                      className="absolute right-1 top-1/2 -translate-y-1/2"
+                    >
+                      <X />
+                    </Button>
+                  )}
+                </div>
+              </Field>
+              <Field className="gap-1 2xl:col-span-2">
                 <FieldLabel htmlFor="expenses-from-date">From</FieldLabel>
                 <Input
                   id="expenses-from-date"
                   type="date"
                   value={fromDate}
-                  onChange={(event) => setFromDate(event.target.value)}
+                  onChange={(event) => {
+                    setFromDate(event.target.value);
+                    setPageIndex(0);
+                  }}
                 />
               </Field>
-              <Field className="min-w-36 flex-1 gap-1">
+              <Field className="gap-1 2xl:col-span-2">
                 <FieldLabel htmlFor="expenses-to-date">To</FieldLabel>
                 <Input
                   id="expenses-to-date"
                   type="date"
                   value={toDate}
-                  onChange={(event) => setToDate(event.target.value)}
+                  onChange={(event) => {
+                    setToDate(event.target.value);
+                    setPageIndex(0);
+                  }}
                 />
               </Field>
-              <Field className="min-w-40 flex-1 gap-1">
+              <Field className="gap-1 2xl:col-span-2">
                 <FieldLabel htmlFor="expenses-category-filter">Category</FieldLabel>
                 <Select
                   value={categoryFilter || "all"}
-                  onValueChange={(value) =>
-                    value === "all"
-                      ? setCategoryFilter("")
-                      : setExpenseCategoryFilter(value)
-                  }
+                  onValueChange={setExpenseCategoryFilter}
                 >
                   <SelectTrigger id="expenses-category-filter" className="w-full">
                     <SelectValue />
@@ -364,15 +433,30 @@ const ExpensesPage = () => {
                   </SelectContent>
                 </Select>
               </Field>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setDatePreset("today")}>
+              <div className="flex flex-wrap gap-2 2xl:col-span-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDatePreset("today")}
+                >
                   Today
                 </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => setDatePreset("month")}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDatePreset("month")}
+                >
                   This month
                 </Button>
-                {(fromDate || toDate || categoryFilter) && (
-                  <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
+                {(fromDate || toDate || categoryFilter || search) && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                  >
                     Clear
                   </Button>
                 )}
@@ -415,41 +499,49 @@ const ExpensesPage = () => {
                   <Skeleton className="h-16 w-full" />
                   <Skeleton className="h-16 w-full" />
                 </div>
-              ) : expensesQuery.isError ? null : expenses.length > 0 ? (
-                <div className="divide-y divide-border">
-                  {expenses.map((expense) => (
-                    <article
-                      key={expense.id}
-                      className="flex flex-wrap items-start justify-between gap-3 px-5 py-4"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-medium text-foreground">
-                            {expense.description}
-                          </h3>
-                          <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs text-secondary-foreground">
-                            {categoryLabel(expense.category)}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-sm text-muted-foreground">
+              ) : expensesQuery.isError ? null : currentExpenses.length > 0 ? (
+                <Table className="min-w-[700px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date &amp; time</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Recorded by</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {currentExpenses.map((expense) => (
+                      <TableRow key={expense.id}>
+                        <TableCell className="text-muted-foreground">
                           {new Date(expense.spentAt).toLocaleString("en-PK", {
                             dateStyle: "medium",
                             timeStyle: "short",
                           })}
-                          {" · "}{expense.createdBy.name}
-                        </p>
-                        {expense.note && (
-                          <p className="mt-1 break-words text-sm text-muted-foreground">
-                            {expense.note}
+                        </TableCell>
+                        <TableCell className="min-w-[220px] whitespace-normal">
+                          <p className="font-medium text-foreground">
+                            {expense.description}
                           </p>
-                        )}
-                      </div>
-                      <p className="shrink-0 font-semibold tabular-nums text-foreground">
-                        {formatPaisa(expense.amountPaisa)}
-                      </p>
-                    </article>
-                  ))}
-                </div>
+                          {expense.note && (
+                            <p className="mt-0.5 break-words text-xs text-muted-foreground">
+                              {expense.note}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">
+                            {categoryLabel(expense.category)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{expense.createdBy.name}</TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums">
+                          {formatPaisa(expense.amountPaisa)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               ) : (
                 <div className="px-5 py-12 text-center">
                   <ClipboardList className="mx-auto size-9 text-muted-foreground/60" />
@@ -460,23 +552,68 @@ const ExpensesPage = () => {
                 </div>
               )}
 
-              {expensesQuery.hasNextPage && (
-                <div className="border-t border-border p-4 text-center">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => expensesQuery.fetchNextPage()}
-                    disabled={expensesQuery.isFetchingNextPage}
-                  >
-                    {expensesQuery.isFetchingNextPage ? (
-                      <>
-                        <LoaderCircle className="animate-spin" />
-                        Loading
-                      </>
-                    ) : (
-                      "Load more"
-                    )}
-                  </Button>
+              {firstPage && firstPage.totalCount > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {pageIndex * EXPENSES_PER_PAGE + 1}–
+                    {Math.min(
+                      (pageIndex + 1) * EXPENSES_PER_PAGE,
+                      firstPage.totalCount,
+                    )}{" "}
+                    of {firstPage.totalCount}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setPageIndex((current) => Math.max(0, current - 1))
+                      }
+                      disabled={
+                        pageIndex === 0 || expensesQuery.isFetchingNextPage
+                      }
+                    >
+                      <ChevronLeft />
+                      Previous
+                    </Button>
+                    <span className="min-w-16 text-center text-sm text-muted-foreground">
+                      Page {pageIndex + 1} of{" "}
+                      {Math.ceil(firstPage.totalCount / EXPENSES_PER_PAGE)}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        const nextPageIndex = pageIndex + 1;
+                        if (
+                          nextPageIndex <
+                          (expensesQuery.data?.pages.length ?? 0)
+                        ) {
+                          setPageIndex(nextPageIndex);
+                          return;
+                        }
+                        if (expensesQuery.hasNextPage) {
+                          const result = await expensesQuery.fetchNextPage();
+                          if (result.data?.pages[nextPageIndex]) {
+                            setPageIndex(nextPageIndex);
+                          }
+                        }
+                      }}
+                      disabled={
+                        expensesQuery.isFetchingNextPage ||
+                        (!expensesQuery.hasNextPage &&
+                          pageIndex + 1 >=
+                            Math.ceil(
+                              firstPage.totalCount / EXPENSES_PER_PAGE,
+                            ))
+                      }
+                    >
+                      {expensesQuery.isFetchingNextPage ? "Loading…" : "Next"}
+                      {!expensesQuery.isFetchingNextPage && <ChevronRight />}
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>

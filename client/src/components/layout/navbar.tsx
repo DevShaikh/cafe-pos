@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { logout } from "@/lib/services/auth.service";
+import { createUuid } from "@/lib/utils";
 import { authKeys, useCurrentStaff } from "@/lib/hooks/auth.hooks";
 import {
   useCloseSession,
@@ -47,11 +48,11 @@ const Navbar = () => {
     if (currentSessionQuery.data) {
       closeSessionMutation.mutate({
         sessionId: currentSessionQuery.data.id,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: createUuid(),
       });
       return;
     }
-    openSessionMutation.mutate(crypto.randomUUID());
+    openSessionMutation.mutate(createUuid());
   };
 
   // Live clock for the cashier

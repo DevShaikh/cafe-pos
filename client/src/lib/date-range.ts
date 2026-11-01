@@ -1,4 +1,4 @@
-import type { OrderFilters } from "@/lib/services/order.service";
+import type { DateRangeFilters } from "@/lib/services/order.service";
 
 export function localDateBoundary(date: string, endExclusive = false): string {
   const boundary = new Date(`${date}T00:00:00`);
@@ -6,7 +6,7 @@ export function localDateBoundary(date: string, endExclusive = false): string {
   return boundary.toISOString();
 }
 
-export function makeDateFilters(fromDate: string, toDate: string): OrderFilters {
+export function makeDateFilters(fromDate: string, toDate: string): DateRangeFilters {
   return {
     ...(fromDate ? { from: localDateBoundary(fromDate) } : {}),
     ...(toDate ? { to: localDateBoundary(toDate, true) } : {}),
@@ -27,4 +27,3 @@ export function dateIsInRange(
   if (toDate && time >= Date.parse(localDateBoundary(toDate, true))) return false;
   return true;
 }
-

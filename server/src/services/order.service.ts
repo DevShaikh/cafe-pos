@@ -149,7 +149,8 @@ export async function createOrder(
         lineTotalPaisa: product.pricePaisa * quantity,
       };
     });
-    const totals = calculateTotals(orderItems, settings.taxRateBps);
+    const taxRateBps = settings.taxEnabled ? settings.taxRateBps : 0;
+    const totals = calculateTotals(orderItems, taxRateBps);
 
     const counter = await tx.counter.upsert({
       where: { name: "receipt" },
@@ -163,7 +164,7 @@ export async function createOrder(
         receiptNumber,
         orderType: input.orderType,
         ...totals,
-        taxRateBps: settings.taxRateBps,
+        taxRateBps,
         createdById: actorId,
         sessionId: session.id,
         items: { create: orderItems },
@@ -210,12 +211,18 @@ export async function listOrders(input: ListOrdersInput) {
       ...(input.to ? { lt: new Date(input.to) } : {}),
     };
   }
+  if (input.search) {
+    where.receiptNumber = { contains: input.search };
+  }
   const unpaidWhere: Prisma.OrderWhereInput = {
+    ...where,
     status: "PLACED",
-    ...(where.createdAt ? { createdAt: where.createdAt } : {}),
   };
+  if (input.status) {
+    where.status = input.status;
+  }
 
-  const [page, unpaidCount] = await prismaClient.$transaction([
+  const [page, unpaidCount, totalCount] = await prismaClient.$transaction([
     prismaClient.order.findMany({
       where,
       ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
@@ -224,6 +231,7 @@ export async function listOrders(input: ListOrdersInput) {
       include: { items: true, payments: true },
     }),
     prismaClient.order.count({ where: unpaidWhere }),
+    prismaClient.order.count({ where }),
   ]);
   const hasMore = page.length > input.limit;
   const items = hasMore ? page.slice(0, input.limit) : page;
@@ -231,6 +239,7 @@ export async function listOrders(input: ListOrdersInput) {
   return {
     items,
     unpaidCount,
+    totalCount,
     hasMore,
     nextCursor: hasMore ? items.at(-1)?.id ?? null : null,
   };

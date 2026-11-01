@@ -25,7 +25,7 @@ export function useInfiniteExpenses(
     queryFn: async ({ pageParam, signal }) =>
       (
         await getExpenses(
-          { ...filters, cursor: pageParam, limit: 50 },
+          { ...filters, cursor: pageParam, limit: 10 },
           signal,
         )
       ).data.data,

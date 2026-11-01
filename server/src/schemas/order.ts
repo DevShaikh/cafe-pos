@@ -56,6 +56,8 @@ function validateDateRange(
 export const listOrdersQuerySchema = z
   .object({
     ...dateRangeFields,
+    search: z.string().trim().max(80).optional(),
+    status: z.enum(["PLACED", "PAID"]).optional(),
     cursor: z.uuid().optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50),
   })
