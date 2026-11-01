@@ -72,6 +72,7 @@ const Navbar = () => {
     if (pathname.startsWith("/catalog")) return "New Receipt";
     if (pathname.startsWith("/orders")) return "Orders & Payments";
     if (pathname.startsWith("/reports")) return "Sales Reports";
+    if (pathname.startsWith("/expenses")) return "Expenses";
     if (pathname.startsWith("/settings")) return "Settings";
     return "Cafe POS";
   };

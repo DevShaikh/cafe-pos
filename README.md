@@ -2,7 +2,7 @@
 
 A locally running cafe point-of-sale app for the counter. Built as a learning and portfolio project.
 
-**Status:** Staff login, cashier sessions, server-backed checkout and payments, order history, summary reports, and authenticated product/category management are implemented. Historical receipts may still exist only in browser storage. Settings are a placeholder. See [`project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md`](project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md) for current progress and priorities; verify behavior against source before changing it.
+**Status:** Staff login, cashier sessions, server-backed checkout and payments, order history, summary reports, authenticated product/category management, and expense tracking are implemented. Historical receipts may still exist only in browser storage. Settings are a placeholder. See [`project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md`](project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md) for current progress and priorities; verify behavior against source before changing it.
 
 ---
 
@@ -16,6 +16,7 @@ The cashier uses the system to:
 4. Submit the order. The server validates current product data, calculates totals, saves an unpaid order, and returns receipt data for browser printing.
 5. Record payment for a server-backed order after the cashier confirms cash or another manual payment method.
 6. Review paginated orders and summary sales reports.
+7. Record cafe purchases and calculate total expenses for selected dates and categories.
 
 Payment is manual; the app records the cashier's confirmation and selected method. Editing, voiding, refunds, and cash reconciliation are not implemented. Legacy device-saved receipts remain separate from server orders.
 
@@ -97,7 +98,7 @@ npm run dev
 ```text
 client/          Next.js app
   src/
-    app/         App Router pages: (main)/catalog, (main)/products, (main)/orders, (main)/reports, (main)/settings
+    app/         App Router pages: (main)/catalog, (main)/products, (main)/orders, (main)/reports, (main)/expenses, (main)/settings
     components/  layout/ (Sidebar, Navbar), modules/ (ProductCard, ReceiptPanel, PrintReceipt), ui/ (shadcn)
     lib/         hooks/ (product.hooks), services/ (api-client, product.service), utils.ts
     store/       cart.store.ts, order.store.ts
@@ -119,6 +120,8 @@ docs/
 
 - Catalog search/category filters are wired; unavailable products are clearly marked and cannot be added to a receipt.
 - Product and category maintenance is available at `/products`. Product records are retained and can be marked unavailable; categories with assigned products cannot be deleted.
+- Expense tracking is available at `/expenses`: authenticated staff can save purchases in SQLite with a category, amount, date/time, and optional note; filtered totals are calculated across all matching records.
+- Expense records are currently append-only; correcting or removing a saved entry is not yet supported.
 - Settings management, stock/inventory tracking, order editing/voiding/refunds, and cash reconciliation are not implemented.
 - Electron preserves browser storage and clears only the previous login cookie on startup, so staff must enter a PIN after each app launch. Legacy local receipts should remain stored; survival across a real desktop restart is not yet verified. Electron is not yet a self-contained offline installer.
 - A known `1234` administrator PIN is created by the seed when no admin exists. Do not treat the seeded account as production-ready.

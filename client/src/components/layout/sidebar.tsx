@@ -7,6 +7,7 @@ import {
   Utensils,
   ReceiptText,
   BarChart3,
+  Calculator,
   Settings,
   Package,
 } from "lucide-react";
@@ -34,6 +35,7 @@ const primaryNav = [
   { href: "/catalog", label: "New Receipt", icon: Utensils },
   { href: "/orders", label: "Orders", icon: ReceiptText },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/expenses", label: "Expenses", icon: Calculator },
 ];
 
 const manageNav = [
