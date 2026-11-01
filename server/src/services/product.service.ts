@@ -5,6 +5,7 @@ import { ERROR_CODES } from "../constants/error-codes";
 export interface GetProductsParams {
   search?: string;
   category?: string | null;
+  includeUnavailable?: boolean;
 }
 
 /**
@@ -13,12 +14,21 @@ export interface GetProductsParams {
  * @returns Products with integer pricePaisa values, optionally filtered
  * @throws AppError when the database query fails
  */
-export const getProducts = async ({ search, category }: GetProductsParams) => {
+export const getProducts = async ({
+  search,
+  category,
+  includeUnavailable = false,
+}: GetProductsParams) => {
   try {
     const where: Partial<{
       name?: string | { contains?: string; mode?: "insensitive" };
       category?: string | { equals?: string };
+      isAvailable?: boolean;
     }> = {};
+
+    if (!includeUnavailable) {
+      where.isAvailable = true;
+    }
 
     if (search && search.trim()) {
       where.name = { contains: search, mode: "insensitive" as const };
