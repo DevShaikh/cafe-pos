@@ -3,7 +3,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Utensils, ReceiptText, BarChart3, Settings } from "lucide-react";
+import {
+  Utensils,
+  ReceiptText,
+  BarChart3,
+  Settings,
+  Package,
+} from "lucide-react";
 import { useOrderStore } from "@/store/order.store";
 import { useOrders } from "@/lib/hooks/order.hooks";
 import { useCurrentStaff } from "@/lib/hooks/auth.hooks";
@@ -28,6 +34,11 @@ const primaryNav = [
   { href: "/catalog", label: "New Receipt", icon: Utensils },
   { href: "/orders", label: "Orders", icon: ReceiptText },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+];
+
+const manageNav = [
+  { href: "/products", label: "Menu", icon: Package },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 const Sidebar = () => {
@@ -144,26 +155,34 @@ const Sidebar = () => {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname.startsWith("/settings")}
-                  tooltip="Settings"
-                  className={cn(
-                    "h-11 rounded-xl transition-colors duration-150 data-[active=true]:bg-primary data-[active=true]:font-semibold data-[active=true]:text-primary-foreground data-[active=true]:shadow-sm data-[active=true]:hover:bg-primary/90",
-                    "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!size-11 group-data-[collapsible=icon]:!justify-center group-data-[collapsible=icon]:!p-0",
-                    !pathname.startsWith("/settings") &&
-                      "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                  )}
-                >
-                  <Link href="/settings" className="flex items-center gap-3">
-                    <Settings size={19} className="shrink-0" />
-                    <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">
-                      Settings
-                    </span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {manageNav.map((item) => {
+                const isActive = pathname.startsWith(item.href);
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.label}
+                      className={cn(
+                        "h-11 rounded-xl transition-colors duration-150 data-[active=true]:bg-primary data-[active=true]:font-semibold data-[active=true]:text-primary-foreground data-[active=true]:shadow-sm data-[active=true]:hover:bg-primary/90",
+                        "group-data-[collapsible=icon]:!mx-auto group-data-[collapsible=icon]:!size-11 group-data-[collapsible=icon]:!justify-center group-data-[collapsible=icon]:!p-0",
+                        !isActive &&
+                          "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      )}
+                    >
+                      <Link
+                        href={item.href}
+                        className="flex items-center gap-3"
+                      >
+                        <item.icon size={19} className="shrink-0" />
+                        <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">
+                          {item.label}
+                        </span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

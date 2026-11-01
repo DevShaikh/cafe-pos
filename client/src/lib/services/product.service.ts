@@ -3,6 +3,25 @@ import { apiClient } from "@/lib/services/api-client";
 import { ServiceResponse } from "@/types";
 
 const BASE_URL = "/products";
+const CATEGORIES_URL = "/categories";
+
+export type Category = {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProductInput = {
+  name: string;
+  description: string | null;
+  pricePaisa: number;
+  category: string;
+};
+
+export type ProductUpdate = Partial<ProductInput> & {
+  isAvailable?: boolean;
+};
 
 export type ProductListParams = {
   search?: string;
@@ -20,3 +39,32 @@ export const getProducts = async (
 ): ServiceResponse<Product[]> => {
   return apiClient.get(`${BASE_URL}`, { params, signal });
 };
+
+export const getCategories = (
+  signal?: AbortSignal,
+): ServiceResponse<Category[]> => apiClient.get(CATEGORIES_URL, { signal });
+
+export const createCategory = (
+  name: string,
+): ServiceResponse<Category> => apiClient.post(CATEGORIES_URL, { name });
+
+export const updateCategory = (
+  id: string,
+  name: string,
+): ServiceResponse<Category> =>
+  apiClient.patch(`${CATEGORIES_URL}/${encodeURIComponent(id)}`, { name });
+
+export const deleteCategory = (
+  id: string,
+): ServiceResponse<{ id: string }> =>
+  apiClient.delete(`${CATEGORIES_URL}/${encodeURIComponent(id)}`);
+
+export const createProduct = (
+  input: ProductInput,
+): ServiceResponse<Product> => apiClient.post(BASE_URL, input);
+
+export const updateProduct = (
+  id: string,
+  input: ProductUpdate,
+): ServiceResponse<Product> =>
+  apiClient.patch(`${BASE_URL}/${encodeURIComponent(id)}`, input);
