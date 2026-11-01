@@ -40,7 +40,7 @@ async function main() {
 
   // 3. Add missing demo products without replacing the cafe's catalog.
   const existingProducts = await prismaClient.product.findMany({
-    select: { name: true },
+    select: { name: true, category: true },
   });
   const existingNames = new Set(existingProducts.map(({ name }) => name));
   const productsToCreate = products.filter(
@@ -49,6 +49,20 @@ async function main() {
 
   if (productsToCreate.length > 0) {
     await prismaClient.product.createMany({ data: productsToCreate });
+  }
+
+  const categoryNames = new Set([
+    ...existingProducts
+      .map(({ category }) => category?.trim())
+      .filter((name): name is string => Boolean(name)),
+    ...productsToCreate.map(({ category }) => category),
+  ]);
+  for (const name of categoryNames) {
+    await prismaClient.category.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
   }
 
   console.log(
