@@ -2,7 +2,7 @@
 
 A locally running cafe point-of-sale app for the counter. Built as a learning and portfolio project.
 
-**Status:** The catalog is connected to the API. Staff can sign in through the client and the main UI checks the server session; order and payment data still run in browser state. Phase F is in progress. See [`docs/backend-plan.md`](docs/backend-plan.md) for the verified implementation state and priorities.
+**Status:** Staff login, cashier sessions, server-backed checkout and payments, order history, and summary reports are implemented. Historical receipts may still exist only in browser storage. The product catalog is read-only through the UI, and settings are a placeholder. See [`project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md`](project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md) for current progress and priorities; verify behavior against source before changing it.
 
 ---
 
@@ -10,14 +10,13 @@ A locally running cafe point-of-sale app for the counter. Built as a learning an
 
 The cashier uses the system to:
 
-1. Build a receipt from the menu.
-2. Choose order type (Dine in / Takeaway — label only).
-3. Generate a receipt → it becomes **unpaid**, is automatically sent to the 80mm thermal printer, and the cart resets instantly.
-4. Edit and regenerate an unpaid receipt if the order changes.
-5. When the waiter returns with cash (or EasyPaisa / transfer confirmation), **mark the receipt as paid**.
-6. Review paid history and generate a session report.
+1. Sign in with a staff PIN and open a cashier session.
+2. Add products to a cart and choose an order type (Dine in / Takeaway; label only).
+3. Submit the order. The server validates current product data, calculates totals, saves an unpaid order, and returns receipt data for browser printing.
+4. Record payment for a server-backed order after the cashier confirms cash or another manual payment method.
+5. Review paginated orders and summary sales reports.
 
-Payment is always manual. The app only records that the cashier confirmed the money was received.
+Payment is manual; the app records the cashier's confirmation and selected method. Editing, voiding, refunds, and cash reconciliation are not implemented. Legacy device-saved receipts remain separate from server orders.
 
 Full product rules, layout, and acceptance criteria live in [`docs/pos-spec.md`](docs/pos-spec.md).  
 Quick locked decisions: [`docs/decisions.md`](docs/decisions.md).  
@@ -30,7 +29,7 @@ Current architecture, implemented flows, gaps, and backend plan: [`docs/backend-
 | Layer                | Technologies                                                              |
 | -------------------- | ------------------------------------------------------------------------- |
 | **Client**           | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, shadcn/ui |
-| **State Management** | Zustand (client cart & orders), TanStack Query (server products)          |
+| **State Management** | Zustand (cart and legacy local receipts), TanStack Query (server data)      |
 | **Printing**         | `react-to-print` (80mm thermal receipt template)                          |
 | **Server**           | Node.js, Express, TypeScript, Zod                                         |
 | **Database**         | SQLite (single local file) with Prisma 7                                  |
@@ -40,7 +39,7 @@ Current architecture, implemented flows, gaps, and backend plan: [`docs/backend-
 
 ## Getting started
 
-You need **Node.js 20.9+** and npm. No separate database server is required.
+Use **Node.js 22.12+** and npm. This minimum aligns with the currently locked Electron and Prisma package engine requirements. No separate database server is required.
 
 ### 1. Clone and install
 
@@ -115,13 +114,12 @@ docs/
 
 ---
 
-## Roadmap
+## Current gaps
 
-| Phase | Focus                                                       | Status         |
-| ----- | ----------------------------------------------------------- | -------------- |
-| **A** | Application shell, sidebar, theme, view switching            | ✅ Implemented |
-| **B** | Product catalog and cart UI                                  | ✅ Implemented |
-| **C** | Local receipt generation and thermal print template          | ✅ UI only     |
-| **D** | Local unpaid/paid order views                                 | ✅ UI only     |
-| **E** | Reports and accessibility polish                              | 🔄 Partial     |
-| **F** | Persisted orders, payment API, authentication, recovery       | 🔄 In Progress |
+- Catalog search/category controls are not wired to the product filters; unavailable products are rejected at checkout rather than disabled in the grid.
+- Product and settings management, order editing/voiding/refunds, and cash reconciliation are not implemented.
+- Electron clears browser storage on startup, which removes legacy local receipts and the login cookie. Electron is not a self-contained offline installer.
+- A known `1234` administrator PIN is created by the seed when no admin exists. Do not treat the seeded account as production-ready.
+- Backups, restoration, and critical checkout/payment behavior have not been operationally tested.
+
+See the [project status and technical roadmap](project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md) for prioritized next work and verification status. See [`docs/backend-plan.md`](docs/backend-plan.md) for the API map and implementation details.

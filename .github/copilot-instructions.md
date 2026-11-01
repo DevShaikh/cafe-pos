@@ -1,65 +1,46 @@
 # Cafe POS repository instructions
 
-## Purpose and sources of truth
+## Before starting
 
-Build a locally deployable, single-cashier cafe point-of-sale application in small, reviewable steps. Respect the user's requested scope and ask before taking a consequential product or architecture decision that is not already documented.
+- Read [`project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md`](../project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md) for current status and priorities.
+- Inspect relevant current source before assuming a feature is implemented. Status/spec documents can become stale; the code is authoritative for behavior.
+- Respect the user's scope. Do not start roadmap work without authorization or make consequential product/architecture decisions without asking.
 
-- [`docs/pos-spec.md`](../docs/pos-spec.md): current implementation, desired workflow, roadmap, and known gaps.
-- [`docs/decisions.md`](../docs/decisions.md): domain and architecture decisions plus implementation differences.
-- [`README.md`](../README.md): setup, commands, endpoints, and repository map.
+## Product scope and architecture
 
-Do not treat a planned feature in the spec as implemented. Current progress is partial across the UI workflow; see the spec's roadmap table before describing status.
+- This is a local Cafe POS for **one computer and one cashier**, not SaaS, cloud, multi-branch, multi-tenant, or distributed software.
+- Keep the existing stack: Next.js 16 App Router/React 19/strict TypeScript client; Express 5/TypeScript API; Prisma 7 with local SQLite and `better-sqlite3`; Electron is a localhost shell, not a packaged/offline runtime.
+- The browser calls the API over HTTP (through the Next.js proxy). Never connect client code directly to SQLite or Prisma.
+- Keep existing boundaries: client `app/`, `components/`, `lib/`, `store/`, `types/`; server `config/`, `lib/`, `middleware/`, `routes/`, `controllers/`, `services/`, `schemas/`, `utils/`; seeds in `server/seeds/`; split Prisma schema in `server/prisma/schema/`. Do not create `server/src/modules/`.
+- Use integer paisa for authoritative money calculations and preserve product name/unit-price snapshots in completed order lines.
+- Preserve Prisma migration history. Do not reset or delete migrations; back up and test against a copy before risky database changes.
 
-## Current architecture
+## Implementation conventions
 
-- `client/`: Next.js 16 App Router, React 19, strict TypeScript, Tailwind CSS 4, shadcn/Radix UI, Zustand, TanStack Query, Zod, Lucide React.
-- `server/`: Node.js, Express 5, TypeScript, REST JSON API, Zod, Prisma 7, SQLite, `better-sqlite3` adapter.
-- `electron/`: development desktop shell that loads the local Next.js UI. Do not assume packaged/offline deployment or direct printer access.
-- Client routes: `/catalog`, `/orders`, `/reports`, `/settings`, and static `/login`; `/` redirects to `/catalog`.
-- Product data flow: UI -> TanStack Query hook -> product service -> Axios client -> `/api/products` -> Express route/controller/service -> Prisma -> SQLite. Product prices are serialized as two-decimal strings.
-- Local workflow: product cards -> Zustand in-memory cart -> receipt calculation/generation -> Zustand order store persisted in localStorage -> unpaid/paid order views. No server-side order API currently exists.
-- Use the existing project folder boundaries. Do not create `server/src/modules/`.
+- Follow naming, formatting, strict typing, Zod validation, shared API response/error shapes, and UI conventions already used in the relevant files.
+- Keep routes for URL mapping, controllers for HTTP adaptation, services for business logic/data operations, and Prisma queries on the server.
+- Use `cn()` from `@/lib/utils`, semantic CSS tokens, and existing shadcn/Radix patterns in client UI.
+- Avoid unnecessary packages, abstractions, broad rewrites, and overengineering. Preserve working functionality and make small, reviewable changes.
+- Keep errors visible and actionable; do not silently swallow failures or return success-shaped fallbacks.
 
-## Current capability caveats
+## Client-specific guidance
 
-- Catalog search/category/filter controls are visual only; availability is not enforced in the current grid.
-- Reports and Settings are placeholders. Login does not authenticate. Editing/regenerating receipts is absent.
-- Receipt printing uses `react-to-print` and browser print UI. Current latest-receipt selection reads a stale render value after a store update, and a timeout can race print preparation.
-- The currency helper accepts paisa, but the product card currently passes the rupee amount directly. Cart money also uses JS numbers. Follow the documented integer-paisa target when working on this area and fix related conversions coherently.
-- The API welcome endpoint is `/`; `/api` has no welcome route. Health and products are under `/api`.
+Before editing Next.js code, read `client/AGENTS.md` and the relevant guide under `client/node_modules/next/dist/docs/`. This repository enables `cacheComponents` and `partialPrefetching`; follow the installed Next version's guidance.
 
-## Required stack and project constraints
+## Documentation and verification
 
-- Before editing Next.js code, read the relevant guide in `client/node_modules/next/dist/docs/`; `client/AGENTS.md` contains the local Next.js-specific instruction. `cacheComponents` and `partialPrefetching` are enabled in `client/next.config.ts`.
-- Client structure: `app/`, `components/ui/`, `components/layout/`, `components/modules/`, `components/providers/`, `store/`, `lib/`, and `types/`.
-- Server structure: `config/`, `lib/`, `middleware/`, `routes/`, `controllers/`, `services/`, `schemas/`, and `utils/`; seed files live in `server/seeds/`.
-- Keep the Prisma 7 multi-file schema in `server/prisma/schema/`: generator/datasource in `schema.prisma`, domain models in separate files. Create migrations with `npm run db:migrate --prefix server`; preserve history and do not reset/delete migrations without approval.
-- Database is local SQLite by default at `server/data/cafe-pos.db`; never commit the database or environment files. `PORT` defaults to 3000, `CLIENT_ORIGIN` to `http://localhost:3001`, and an optional `DATABASE_URL` must be a SQLite `file:` URL.
-- Use compatible dependencies and preserve existing package structure. npm may block install scripts; native packages must be explicitly approved through the repository's `allowScripts` workflow.
+- The project status/roadmap document is the primary progress tracker. `docs/pos-spec.md` describes desired user behavior; `docs/decisions.md` records durable decisions; `docs/backend-plan.md` maps backend structure and flows. Distinguish plans from implemented features.
+- After significant work, update the project status document with verified completed work, pending tasks, bugs, and decisions. Update other directly affected docs when authorized.
+- Run the smallest appropriate checks after authorized code changes unless the user or applicable repository instruction prohibits them. Report exact commands and results; state clearly when checks were not run.
+- Never claim a feature, fix, test, build, or decision is complete without verification.
 
-## Architecture and quality rules
+## Current verified caveats
 
-- The browser talks to the backend through HTTP only; never connect client code directly to SQLite/Prisma.
-- Keep routes for URL mapping, controllers for HTTP adaptation, services for reusable business/data operations, and Prisma queries on the server.
-- Validate untrusted request values with Zod. Do not silently swallow errors or return success-shaped fallbacks.
-- API success shape is `{ success: true, message?, data? }`; errors are `{ error: { code, message, issues? } }` through the shared error middleware. `AppError` argument order is status code, error code, message.
-- Keep client product data aligned with the API: UUID string id, string price, nullable description/image URL, ISO timestamp strings, category, and availability. Maintain one Zod schema as the source for the client `Product` type.
-- Money source of truth is integer paisa. Convert API rupee strings once at a clear boundary, retain integer amounts through cart/receipt operations, and format at display boundaries. Do not use JS float arithmetic as money truth.
-- Preserve product name and unit-price snapshots in completed receipt lines so future product changes do not rewrite history.
-- Keep TypeScript strict; avoid `any` unless necessary and explained.
-- Use `cn()` from `@/lib/utils`. Define theme colors as CSS semantic tokens in `client/src/app/globals.css` and consume tokens rather than repeating arbitrary colors.
-- Prefer focused changes that match current naming and formatting. Update directly related docs when behavior, scripts, dependencies, or configuration changes.
+- New order creation, manual payment, sessions, paginated order history, and summary sales reporting are server-backed. Legacy receipts may remain local.
+- Product search/category UI controls are not wired to the server's optional filters; the product API has no create/update/delete routes.
+- The checkout UI assumes 8% tax while the server reads the configured `Settings.taxRateBps`.
+- Settings, order edit/void/refund, cash reconciliation, role-specific route policy, and report printing are incomplete.
+- Electron clears browser storage on startup, including legacy local receipts and the auth cookie. It does not provide packaged service startup.
+- The seed can create/log the known admin PIN `1234`; no login rate limiter is configured.
 
-## UI direction
-
-- Desktop/counter-first shell with sidebar and main workspace.
-- Catalog should keep a scrollable product area and visible receipt panel at desktop widths.
-- Optimize checkout for few taps, clear pricing, accessible controls, visible focus, and stable layouts. Do not assume the current interface already meets every target.
-- Support light/dark theme using existing tokens and `next-themes`.
-
-## Working agreement
-
-- Inspect relevant source and documentation before editing. Summarize intended files for substantial changes.
-- Work only within the user's requested scope; do not jump into a later roadmap feature without approval.
-- Do not run tests or other checks unless the user asks to test/verify. If they ask, run the smallest relevant check and report the exact command/result; never imply a check ran when it did not.
-- Explain material behavior changes and architectural choices clearly. Treat assumptions as assumptions.
+For detailed current risks and priorities, use the project status document rather than duplicating its roadmap here.
