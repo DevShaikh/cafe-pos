@@ -17,4 +17,5 @@ model Staff {
     payments  Payment[]
     auditLogs AuditLog[]
     sessions  RegisterSession[]
+    expenses  Expense[]
 }

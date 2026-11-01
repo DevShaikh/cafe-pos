@@ -14,6 +14,7 @@ import orderRoutes from "./order.routes";
 import reportsRoutes from "./reports.routes";
 import sessionRoutes from "./session.routes";
 import categoryRoutes from "./category.routes";
+import expenseRoutes from "./expense.routes";
 
 const router = Router();
 
@@ -35,5 +36,6 @@ router.use("/categories", categoryRoutes);
 router.use("/orders", orderRoutes); // Mount order routes at /orders
 router.use("/reports", reportsRoutes); // Mount report routes at /reports
 router.use("/sessions", sessionRoutes); // Mount register-session routes at /sessions
+router.use("/expenses", expenseRoutes);
 
 export default router;
