@@ -5,8 +5,10 @@ import {
   deleteCategory,
   getCategories,
   getProducts,
+  removeProductImage,
   updateCategory,
   updateProduct,
+  uploadProductImage,
   type Category,
   type ProductListParams,
   type ProductInput,
@@ -50,6 +52,26 @@ export const useUpdateProduct = () => {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: ProductUpdate }) =>
       updateProduct(id, input).then((response) => response.data.data),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: productKeys.all }),
+  });
+};
+
+export const useUploadProductImage = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, image }: { id: string; image: File }) =>
+      uploadProductImage(id, image).then((response) => response.data.data),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: productKeys.all }),
+  });
+};
+
+export const useRemoveProductImage = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      removeProductImage(id).then((response) => response.data.data),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: productKeys.all }),
   });

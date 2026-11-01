@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import Image from "next/image";
 import axios from "axios";
 import {
   Check,
   CircleCheck,
   CircleOff,
+  Image as ImageIcon,
   Loader2,
   Package,
   Pencil,
@@ -33,7 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -49,6 +51,8 @@ import {
   useCreateProduct,
   useDeleteCategory,
   useProducts,
+  useRemoveProductImage,
+  useUploadProductImage,
   useUpdateCategory,
   useUpdateProduct,
 } from "@/lib/hooks/product.hooks";
@@ -66,6 +70,8 @@ const productFormSchema = z.object({
 });
 
 const EMPTY_PRODUCTS: Product[] = [];
+const MAX_PRODUCT_IMAGE_SIZE = 5 * 1024 * 1024;
+const PRODUCT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 function priceToInput(pricePaisa: number) {
   return `${Math.floor(pricePaisa / 100)}.${String(pricePaisa % 100).padStart(2, "0")}`;
@@ -92,6 +98,8 @@ const ProductsPage = () => {
   const categoriesQuery = useCategories();
   const createProductMutation = useCreateProduct();
   const updateProductMutation = useUpdateProduct();
+  const uploadProductImageMutation = useUploadProductImage();
+  const removeProductImageMutation = useRemoveProductImage();
   const createCategoryMutation = useCreateCategory();
   const updateCategoryMutation = useUpdateCategory();
   const deleteCategoryMutation = useDeleteCategory();
@@ -101,6 +109,10 @@ const ProductsPage = () => {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("");
+  const [productImage, setProductImage] = useState<File | null>(null);
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
+  const [removeCurrentImage, setRemoveCurrentImage] = useState(false);
+  const [imageInputKey, setImageInputKey] = useState(0);
   const [productSearch, setProductSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [availabilityFilter, setAvailabilityFilter] = useState<
@@ -115,6 +127,17 @@ const ProductsPage = () => {
   const [productError, setProductError] = useState("");
   const [categoryError, setCategoryError] = useState("");
   const [notice, setNotice] = useState("");
+  const productImagePreview = useMemo(
+    () => (productImage ? URL.createObjectURL(productImage) : null),
+    [productImage],
+  );
+
+  useEffect(
+    () => () => {
+      if (productImagePreview) URL.revokeObjectURL(productImagePreview);
+    },
+    [productImagePreview],
+  );
 
   const products = productsQuery.data ?? EMPTY_PRODUCTS;
   const categories = categoriesQuery.data ?? [];
@@ -149,6 +172,10 @@ const ProductsPage = () => {
     setDescription("");
     setPrice("");
     setCategory("");
+    setProductImage(null);
+    setCurrentImageUrl(null);
+    setRemoveCurrentImage(false);
+    setImageInputKey((current) => current + 1);
     setProductError("");
   };
 
@@ -158,6 +185,10 @@ const ProductsPage = () => {
     setDescription(product.description ?? "");
     setPrice(priceToInput(product.pricePaisa));
     setCategory(product.category);
+    setProductImage(null);
+    setCurrentImageUrl(product.imageUrl);
+    setRemoveCurrentImage(false);
+    setImageInputKey((current) => current + 1);
     setProductError("");
     setNotice("");
     setProductDialogOpen(true);
@@ -196,17 +227,41 @@ const ProductsPage = () => {
     };
     const savedCategory = parsed.data.category;
 
+    let savedProduct: Product;
     try {
       if (editingProductId) {
-        await updateProductMutation.mutateAsync({
+        savedProduct = await updateProductMutation.mutateAsync({
           id: editingProductId,
           input,
         });
-        setNotice("Product updated.");
       } else {
-        await createProductMutation.mutateAsync(input);
-        setNotice("Product added to the menu.");
+        savedProduct = await createProductMutation.mutateAsync(input);
       }
+
+      try {
+        if (productImage) {
+          savedProduct = await uploadProductImageMutation.mutateAsync({
+            id: savedProduct.id,
+            image: productImage,
+          });
+        } else if (removeCurrentImage) {
+          savedProduct = await removeProductImageMutation.mutateAsync(
+            savedProduct.id,
+          );
+        }
+      } catch (error) {
+        setEditingProductId(savedProduct.id);
+        setCurrentImageUrl(savedProduct.imageUrl);
+        setProductError(
+          `Product details were saved, but the photo was not. ${getErrorMessage(
+            error,
+            "Try selecting the photo again.",
+          )}`,
+        );
+        return;
+      }
+
+      setNotice(editingProductId ? "Product updated." : "Product added to the menu.");
       resetProductForm();
       setCategory(savedCategory);
       setProductDialogOpen(false);
@@ -284,7 +339,10 @@ const ProductsPage = () => {
   };
 
   const isSavingProduct =
-    createProductMutation.isPending || updateProductMutation.isPending;
+    createProductMutation.isPending ||
+    updateProductMutation.isPending ||
+    uploadProductImageMutation.isPending ||
+    removeProductImageMutation.isPending;
 
   return (
     <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
@@ -448,6 +506,85 @@ const ProductsPage = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </Field>
+              <Field className="gap-1.5 sm:col-span-2">
+                <FieldLabel htmlFor="product-image">
+                  Product photo{" "}
+                  <span className="text-muted-foreground">(optional)</span>
+                </FieldLabel>
+                <div className="flex flex-wrap items-start gap-4">
+                  <div className="relative flex aspect-video w-48 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/40">
+                    {productImagePreview ||
+                    (!removeCurrentImage && currentImageUrl) ? (
+                      <Image
+                        src={productImagePreview ?? currentImageUrl ?? ""}
+                        alt={`Photo of ${productName || "product"}`}
+                        fill
+                        unoptimized
+                        sizes="192px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <ImageIcon className="size-8" aria-hidden="true" />
+                        <span className="text-xs">No photo selected</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Input
+                      key={imageInputKey}
+                      id="product-image"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      aria-describedby="product-image-hint"
+                      onChange={(event) => {
+                        const file = event.currentTarget.files?.[0];
+                        if (!file) return;
+                        if (
+                          !PRODUCT_IMAGE_TYPES.includes(file.type) ||
+                          file.size > MAX_PRODUCT_IMAGE_SIZE
+                        ) {
+                          setProductError(
+                            file.size > MAX_PRODUCT_IMAGE_SIZE
+                              ? "Product photos must be no larger than 5 MB."
+                              : "Choose a JPG, PNG, or WebP image.",
+                          );
+                          event.currentTarget.value = "";
+                          return;
+                        }
+                        setProductError("");
+                        setProductImage(file);
+                        setRemoveCurrentImage(false);
+                      }}
+                    />
+                    <FieldDescription id="product-image-hint">
+                      JPG, PNG, or WebP; maximum file size 5 MB. Images are
+                      stored on this computer.
+                    </FieldDescription>
+                    {(productImage || currentImageUrl) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (productImage) {
+                            setProductImage(null);
+                            setImageInputKey((current) => current + 1);
+                          } else {
+                            setRemoveCurrentImage((current) => !current);
+                          }
+                        }}
+                      >
+                        {productImage
+                          ? "Clear selected photo"
+                          : removeCurrentImage
+                            ? "Keep current photo"
+                            : "Remove photo"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </Field>
               {productError && (
                 <p
@@ -626,9 +763,18 @@ const ProductsPage = () => {
                             product.isAvailable
                               ? "bg-primary/10 text-primary"
                               : "bg-muted text-muted-foreground"
-                          }`}
+                          } relative overflow-hidden`}
                         >
-                          {product.isAvailable ? (
+                          {product.imageUrl ? (
+                            <Image
+                              src={product.imageUrl}
+                              alt=""
+                              fill
+                              unoptimized
+                              sizes="40px"
+                              className="object-cover"
+                            />
+                          ) : product.isAvailable ? (
                             <CircleCheck className="size-5" />
                           ) : (
                             <CircleOff className="size-5" />

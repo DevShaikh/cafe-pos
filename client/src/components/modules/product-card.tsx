@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Plus, Coffee } from "lucide-react";
 import { useCartActions } from "@/store/cart.store";
 import { formatPaisa } from "@/lib/utils";
@@ -16,12 +17,21 @@ const ProductCard = ({ product }: ProductCardProps) => {
 
   return (
     <Card className="group relative flex flex-col overflow-hidden rounded-2xl p-0 shadow-sm transition-all hover:border-primary/50 hover:shadow-md">
-      {/* Image Placeholder */}
       <div className="relative flex aspect-4/3 w-full items-center justify-center bg-muted/30 transition-colors group-hover:bg-muted/50">
-        <Coffee className="h-10 w-10 text-muted-foreground/40 transition-transform group-hover:scale-110" />
+        {product.imageUrl ? (
+          <Image
+            src={product.imageUrl}
+            alt={product.name}
+            fill
+            unoptimized
+            sizes="(max-width: 1280px) 25vw, 20vw"
+            className="object-cover"
+          />
+        ) : (
+          <Coffee className="h-10 w-10 text-muted-foreground/40 transition-transform group-hover:scale-110" />
+        )}
       </div>
 
-      {/* Content */}
       <CardContent className="flex flex-1 flex-col justify-between p-4">
         <div>
           <h4 className="text-sm font-bold text-foreground leading-tight">

@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { ERROR_CODES } from "../constants/error-codes";
 import { sendSuccessResponse } from "../utils/responseHandler";
 import * as productService from "../services/product.service";
 import {
@@ -7,6 +8,7 @@ import {
   productListQuerySchema,
   updateProductSchema,
 } from "../schemas/product";
+import AppError from "../utils/app-error";
 
 export const getProducts = async (
   req: Request,
@@ -55,4 +57,60 @@ export const updateProduct = async (
   } catch (error) {
     next(error);
   }
+};
+
+export const uploadProductImage = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const id = productIdSchema.parse(req.params.id);
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      throw new AppError(
+        400,
+        ERROR_CODES.VALIDATION_ERROR,
+        "Choose an image file to upload.",
+      );
+    }
+
+    const product = await productService.uploadProductImage(id, req.body);
+    sendSuccessResponse(res, 200, product, "Product image uploaded successfully");
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteProductImage = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const id = productIdSchema.parse(req.params.id);
+    const product = await productService.deleteProductImage(id);
+    sendSuccessResponse(res, 200, product, "Product image removed successfully");
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getProductImage = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const filename = req.params.filename;
+  const imagePath = productService.getProductImage(filename);
+  if (!imagePath) {
+    next(new AppError(404, ERROR_CODES.NOT_FOUND, "Product image not found."));
+    return;
+  }
+
+  res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
+  res.sendFile(imagePath, (error) => {
+    if (error && !res.headersSent) {
+      next(new AppError(404, ERROR_CODES.NOT_FOUND, "Product image not found."));
+    }
+  });
 };

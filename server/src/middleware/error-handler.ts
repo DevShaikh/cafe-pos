@@ -48,6 +48,16 @@ export const errorHandler: ErrorRequestHandler = (
     return;
   }
 
+  if (isPayloadTooLargeError(error)) {
+    response.status(413).json({
+      error: {
+        code: "PAYLOAD_TOO_LARGE",
+        message: "Product images must be no larger than 5 MB.",
+      },
+    });
+    return;
+  }
+
   console.error(error);
   response.status(500).json({
     error: {
@@ -65,5 +75,16 @@ function isMalformedJsonError(
     error !== null &&
     "type" in error &&
     error.type === "entity.parse.failed"
+  );
+}
+
+function isPayloadTooLargeError(
+  error: unknown,
+): error is { type: "entity.too.large" } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "type" in error &&
+    error.type === "entity.too.large"
   );
 }

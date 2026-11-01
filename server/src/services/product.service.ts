@@ -1,4 +1,9 @@
 import { prismaClient } from "../lib/prismaClient";
+import {
+  getProductImagePath,
+  removeProductImage as removeStoredProductImage,
+  saveProductImage,
+} from "../lib/product-images";
 import type { Prisma } from "../generated/prisma/client.js";
 import AppError from "../utils/app-error";
 import { ERROR_CODES } from "../constants/error-codes";
@@ -165,6 +170,61 @@ export async function updateProduct(
       { cause: error },
     );
   }
+}
+
+export async function uploadProductImage(id: string, data: Buffer) {
+  const current = await prismaClient.product.findUnique({ where: { id } });
+  if (!current) {
+    throw new AppError(
+      404,
+      ERROR_CODES.PRODUCT_NOT_FOUND,
+      "Product not found.",
+    );
+  }
+
+  const imageUrl = await saveProductImage(data);
+  let updated: Awaited<ReturnType<typeof updateProduct>>;
+  try {
+    updated = await updateProduct(id, { imageUrl });
+  } catch (error) {
+    try {
+      await removeStoredProductImage(imageUrl);
+    } catch (cleanupError) {
+      console.error("Could not remove the failed product image upload.", cleanupError);
+    }
+    throw error;
+  }
+
+  try {
+    await removeStoredProductImage(current.imageUrl);
+  } catch (error) {
+    console.error("Could not remove the previous product image file.", error);
+  }
+  return updated;
+}
+
+export async function deleteProductImage(id: string) {
+  const current = await prismaClient.product.findUnique({ where: { id } });
+  if (!current) {
+    throw new AppError(
+      404,
+      ERROR_CODES.PRODUCT_NOT_FOUND,
+      "Product not found.",
+    );
+  }
+  if (!current.imageUrl) return current;
+
+  const updated = await updateProduct(id, { imageUrl: null });
+  try {
+    await removeStoredProductImage(current.imageUrl);
+  } catch (error) {
+    console.error("Could not remove the previous product image file.", error);
+  }
+  return updated;
+}
+
+export function getProductImage(filename: string) {
+  return getProductImagePath(filename);
 }
 
 export async function listCategories() {

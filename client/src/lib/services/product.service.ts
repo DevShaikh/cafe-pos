@@ -68,3 +68,16 @@ export const updateProduct = (
   input: ProductUpdate,
 ): ServiceResponse<Product> =>
   apiClient.patch(`${BASE_URL}/${encodeURIComponent(id)}`, input);
+
+export const uploadProductImage = (
+  id: string,
+  image: File,
+): ServiceResponse<Product> =>
+  apiClient.post(`${BASE_URL}/${encodeURIComponent(id)}/image`, image, {
+    headers: { "Content-Type": "application/octet-stream" },
+  });
+
+export const removeProductImage = (
+  id: string,
+): ServiceResponse<Product> =>
+  apiClient.delete(`${BASE_URL}/${encodeURIComponent(id)}/image`);
