@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { sendSuccessResponse } from "../utils/responseHandler";
 import * as productService from "../services/product.service";
+import { productListQuerySchema } from "../schemas/product";
 
 export const getProducts = async (
   req: Request,
@@ -8,13 +9,12 @@ export const getProducts = async (
   next: NextFunction,
 ) => {
   try {
-    // Extract search query and category filter from URL parameters
-    const searchQuery = (req.query.search as string) || "";
-    const categoryFilter = (req.query.category as string) || null;
+    const query = productListQuerySchema.parse(req.query);
 
     const products = await productService.getProducts({
-      search: searchQuery,
-      category: categoryFilter,
+      search: query.search,
+      category: query.category ?? null,
+      includeUnavailable: query.includeUnavailable === "true",
     });
 
     sendSuccessResponse(res, 200, products, "Products retrieved successfully");
