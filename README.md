@@ -116,9 +116,9 @@ docs/
 
 ## Current gaps
 
-- Catalog search/category controls are not wired to the product filters; unavailable products are rejected at checkout rather than disabled in the grid.
+- Catalog search/category filters are wired; unavailable products are clearly marked and cannot be added to a receipt.
 - Product and settings management, order editing/voiding/refunds, and cash reconciliation are not implemented.
-- Electron clears browser storage on startup, which removes legacy local receipts and the login cookie. Electron is not a self-contained offline installer.
+- Electron preserves browser storage and clears only the previous login cookie on startup, so staff must enter a PIN after each app launch. Legacy local receipts should remain stored; survival across a real desktop restart is not yet verified. Electron is not yet a self-contained offline installer.
 - A known `1234` administrator PIN is created by the seed when no admin exists. Do not treat the seeded account as production-ready.
 - Backups, restoration, and critical checkout/payment behavior have not been operationally tested.
 

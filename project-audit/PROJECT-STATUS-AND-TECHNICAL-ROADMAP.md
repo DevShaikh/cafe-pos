@@ -2,7 +2,7 @@
 
 **Status basis:** Current repository source, the existing consolidated audit, and available project documentation  
 **Last reviewed:** 2026-11-01  
-**Review type:** Source review, targeted browser verification, and requested quality checks; focused login and Orders UI follow-up verified on 2026-11-01.
+**Review type:** Source review, targeted browser verification, and requested quality checks; focused login, Orders/sidebar UI, and Electron startup-persistence follow-ups verified on 2026-11-01.
 
 > Read this document before beginning a new project task. Verify relevant details against current source before editing; this is a continuity aid, not a substitute for source review.
 
@@ -50,7 +50,7 @@ The following are supported by current source and/or verification completed on 2
 - **Order correction:** No edit/regenerate, void, refund, or cashier-facing error-correction flow is implemented.
 - **Cash reconciliation:** Opening/closing cash counts and cash variance are not modeled in register sessions. Payment records method and order amount, not a full tender/received/change workflow.
 - **Authorization policy:** Roles exist in staff data/token, but route middleware enforces authentication rather than role-specific permissions. Define policy only when management operations exist.
-- **Recovery:** No verified backup/restore tool or restore runbook was found. Electron currently clears browser storage at startup.
+- **Recovery:** No verified backup/restore tool or restore runbook was found. Electron preserves browser storage and clears only the `pos_session` cookie at each launch; actual receipt survival across a full desktop restart remains to be verified.
 - **Desktop packaging:** Electron is not a self-contained offline installer and does not start packaged local services.
 - **Reports:** Current summary totals and order-type breakdown exist; report printing remains pending in the product spec.
 - **Accessibility/polish:** Keyboard/focus/contrast work is listed as incomplete in the product spec and has not been fully verified.
@@ -62,7 +62,7 @@ The following are supported by current source and/or verification completed on 2
 1. **Known default administrator PIN:** `server/seeds/index.ts` creates an `Admin` with PIN `1234` when none exists and logs the PIN. The setup guide instructs operators to run the seed. Replace this with safe first-run provisioning before real use.
 2. **No login throttling:** No rate limiter or failed-login backoff is configured. `express-rate-limit` is not a direct server dependency despite the obsolete Stage 5 report’s claim.
 3. **API binding:** `server/src/server.ts` calls `server.listen(env.port)` without explicitly binding to `127.0.0.1`. Local firewall/network exposure depends on runtime defaults and environment; loopback-only should be the default for this single-computer application.
-4. **Electron clears browser storage:** `electron/main.cjs` clears local storage and cookies at startup. This erases legacy local receipts and removes the login cookie. Server-backed records remain in SQLite, but local history can be lost.
+4. **Electron startup persistence:** `electron/main.cjs` now preserves local browser storage and removes only the `pos_session` cookie at startup, requiring a new PIN after each app launch. Electron startup behavior is covered by a mocked lifecycle check; receipt survival across a real desktop restart is still unverified.
 5. **Destructive historical migration:** `20261026175721_add_pos_core_models` drops the old `products` table. `docs/backend-plan.md` says it was applied to the development database. Preserve migration history; test a safe upgrade/rebaseline against a copied database before any database with real catalog data is upgraded.
 6. **No verified backup/recovery:** The SQLite database is local and ignored by Git. No backup/restore process has been exercised; a hardware/database failure could lose sales data.
 7. **Logout does not revoke JWT server-side:** It clears the browser cookie; a copied token remains valid until expiry or staff deactivation. Lower urgency for a local single terminal, but should be documented.
@@ -137,7 +137,7 @@ Continue to treat current source as authoritative for behavior. Use this documen
 
 ### Phase 1 — Protect access and records before real operation
 
-1. Stop Electron from clearing persistent application data on startup; make logout intentional and verify legacy receipt persistence across restart.
+1. **Implemented:** Preserve Electron browser storage while clearing only the auth cookie at startup; verify legacy receipt persistence with a real desktop restart.
 2. Bind the API to loopback by default and replace the shared seed PIN with safe local first-run credential provisioning. Add a proportionate login attempt limit/backoff.
 3. Define and rehearse a SQLite backup/restore procedure, storing backups separately from the computer.
 4. Review the destructive products migration against a copied database; establish a safe forward migration/rebaseline path without rewriting committed migration history.
@@ -160,7 +160,7 @@ Continue to treat current source as authoritative for behavior. Use this documen
 
 ## Recommended next task
 
-**Fix the Electron startup storage wipe in `electron/main.cjs`.** Preserve required local receipt storage across application restarts, while keeping logout a deliberate user action. Before changing behavior, decide whether cookies should persist too; then verify the receipt store survives a desktop restart and that the expected login flow still works. This directly addresses a confirmed local data-loss issue and is a focused first hardening task.
+**Implement and rehearse a SQLite backup/restore workflow.** Electron now preserves browser storage and requires a PIN at each launch, but protecting the server-backed sales database against disk failure is the next critical offline-readiness task. Define a local backup location/retention policy, make a consistent SQLite backup, restore it to a test copy, and verify orders and authentication after restoration. Separately, confirm legacy browser receipt persistence through a real Electron restart.
 
 ## Important decisions to preserve
 

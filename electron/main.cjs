@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, session } = require("electron"); // 1. Imported session
+const { app, BrowserWindow, Menu, dialog, session } = require("electron");
 const path = require("path");
 
 Menu.setApplicationMenu(null);
@@ -26,15 +26,20 @@ const createWindow = () => {
 
 app.whenReady().then(async () => {
   try {
-    // 2. Wipe storage data (localstorage, cookies, indexeddb, etc.) before creating the window
-    await session.defaultSession.clearStorageData({
-      storages: ["localstorage", "cookies", "indexdb", "websql", "appcache"],
-    });
+    await session.defaultSession.cookies.remove(
+      "http://localhost:3001",
+      "pos_session",
+    );
   } catch (error) {
-    console.error("Failed to clear session storage:", error);
+    console.error("Failed to clear the previous POS login cookie:", error);
+    dialog.showErrorBox(
+      "Unable to secure startup",
+      "Cafe POS could not clear the previous login. The app will close without opening.",
+    );
+    app.quit();
+    return;
   }
 
-  // 3. Launch window once the clean state is ready
   createWindow();
 
   app.on("activate", () => {
