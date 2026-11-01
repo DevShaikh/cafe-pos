@@ -13,13 +13,17 @@ import os from "node:os";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
 import { after, afterEach, before, mock, test } from "node:test";
+import jwt from "jsonwebtoken";
 
 const CLIENT_ORIGIN = "http://localhost:3001";
+const TEST_JWT_SECRET = "test-only-secret-for-authenticated-route-tests";
 
 let server: Server;
 let baseUrl: string;
 let prismaClient: typeof import("./lib/prismaClient").prismaClient;
 let originalQueryRaw: typeof prismaClient.$queryRaw;
+let originalStaffFindUnique: typeof prismaClient.staff.findUnique;
+let originalProductFindMany: typeof prismaClient.product.findMany;
 
 before(async () => {
   // Must be set BEFORE the app is imported: config/env.ts reads these on import.
@@ -27,6 +31,7 @@ before(async () => {
   process.env.NODE_ENV = "test";
   process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), "cafe-pos-test.db")}`;
   process.env.CLIENT_ORIGIN = CLIENT_ORIGIN;
+  process.env.JWT_SECRET = TEST_JWT_SECRET;
 
   // tsx loads these as CommonJS, so the app is the module's `default` export.
   // TypeScript's NodeNext typing wraps it one level deeper, hence the cast.
@@ -34,6 +39,8 @@ before(async () => {
     (await import("./app.js")) as unknown as typeof import("./app");
   ({ prismaClient } = await import("./lib/prismaClient.js"));
   originalQueryRaw = prismaClient.$queryRaw;
+  originalStaffFindUnique = prismaClient.staff.findUnique;
+  originalProductFindMany = prismaClient.product.findMany;
 
   server = app.listen(0);
   await once(server, "listening");
@@ -49,6 +56,8 @@ after(async () => {
 afterEach(() => {
   mock.restoreAll();
   prismaClient.$queryRaw = originalQueryRaw;
+  prismaClient.staff.findUnique = originalStaffFindUnique;
+  prismaClient.product.findMany = originalProductFindMany;
 });
 
 // Prisma's client is a Proxy, which node:test's mock.method cannot wrap, so
@@ -71,6 +80,16 @@ function mockDatabaseDown() {
   });
 }
 
+function mockAuthenticatedStaff() {
+  prismaClient.staff.findUnique = (async () => ({
+    id: "test-staff",
+    name: "Test Cashier",
+    role: "ADMIN",
+    active: true,
+  })) as unknown as typeof prismaClient.staff.findUnique;
+  return jwt.sign({ id: "test-staff" }, TEST_JWT_SECRET);
+}
+
 test("GET /api/health returns 200 when the database is reachable", async () => {
   mockDatabaseUp();
 
@@ -82,6 +101,36 @@ test("GET /api/health returns 200 when the database is reachable", async () => {
     message: "Health check passed",
     data: { status: "ok", database: "connected" },
   });
+});
+
+test("product list rejects repeated filter parameters", async () => {
+  const token = mockAuthenticatedStaff();
+
+  const response = await fetch(
+    `${baseUrl}/api/products?search=tea&search=coffee`,
+    { headers: { Cookie: `pos_session=${token}` } },
+  );
+
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, "VALIDATION_ERROR");
+});
+
+test("product list filters unavailable products unless explicitly included", async () => {
+  const token = mockAuthenticatedStaff();
+  const whereValues: unknown[] = [];
+  prismaClient.product.findMany = (async (args) => {
+    whereValues.push(args?.where);
+    return [];
+  }) as typeof prismaClient.product.findMany;
+
+  for (const query of ["", "?includeUnavailable=true"]) {
+    const response = await fetch(`${baseUrl}/api/products${query}`, {
+      headers: { Cookie: `pos_session=${token}` },
+    });
+    assert.equal(response.status, 200);
+  }
+
+  assert.deepEqual(whereValues, [{ isAvailable: true }, {}]);
 });
 
 test("GET /api/health returns a JSON error when the database is down", async () => {
