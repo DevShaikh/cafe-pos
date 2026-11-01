@@ -5,6 +5,8 @@ import Image from "next/image";
 import axios from "axios";
 import {
   Check,
+  ChevronLeft,
+  ChevronRight,
   CircleCheck,
   CircleOff,
   Image as ImageIcon,
@@ -44,6 +46,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
   useCategories,
@@ -78,6 +88,7 @@ const categoryNameSchema = z
   .max(60, "Category names must be 60 characters or fewer.");
 
 const EMPTY_PRODUCTS: Product[] = [];
+const PRODUCTS_PER_PAGE = 10;
 const MAX_PRODUCT_IMAGE_SIZE = 5 * 1024 * 1024;
 const PRODUCT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -123,6 +134,7 @@ const ProductsPage = () => {
   const [imageInputKey, setImageInputKey] = useState(0);
   const [productSearch, setProductSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [productPageIndex, setProductPageIndex] = useState(0);
   const [availabilityFilter, setAvailabilityFilter] = useState<
     "all" | "available" | "unavailable"
   >("all");
@@ -161,6 +173,19 @@ const ProductsPage = () => {
           product.isAvailable === (availabilityFilter === "available")),
     );
   }, [availabilityFilter, categoryFilter, productSearch, products]);
+  const productPageCount = Math.ceil(
+    filteredProducts.length / PRODUCTS_PER_PAGE,
+  );
+  const visibleProducts = filteredProducts.slice(
+    productPageIndex * PRODUCTS_PER_PAGE,
+    (productPageIndex + 1) * PRODUCTS_PER_PAGE,
+  );
+
+  useEffect(() => {
+    setProductPageIndex((current) =>
+      Math.min(current, Math.max(0, productPageCount - 1)),
+    );
+  }, [productPageCount]);
   const productCountsByCategory = useMemo(() => {
     const counts = new Map<string, number>();
     for (const product of products) {
@@ -683,13 +708,19 @@ const ProductsPage = () => {
                     maxLength={100}
                     placeholder="Search by name..."
                     value={productSearch}
-                    onChange={(event) => setProductSearch(event.target.value)}
+                    onChange={(event) => {
+                      setProductSearch(event.target.value);
+                      setProductPageIndex(0);
+                    }}
                     className="pl-9"
                   />
                 </div>
                 <Select
                   value={categoryFilter}
-                  onValueChange={setCategoryFilter}
+                  onValueChange={(value) => {
+                    setCategoryFilter(value);
+                    setProductPageIndex(0);
+                  }}
                 >
                   <SelectTrigger
                     aria-label="Filter by category"
@@ -715,6 +746,7 @@ const ProductsPage = () => {
                       value === "unavailable"
                     ) {
                       setAvailabilityFilter(value);
+                      setProductPageIndex(0);
                     }
                   }}
                 >
@@ -732,7 +764,7 @@ const ProductsPage = () => {
                 </Select>
               </div>
             </CardHeader>
-            <CardContent className="pt-4">
+            <CardContent className="p-0">
               {productsQuery.isLoading ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="size-6 animate-spin text-primary" />
@@ -771,6 +803,7 @@ const ProductsPage = () => {
                         setProductSearch("");
                         setCategoryFilter("all");
                         setAvailabilityFilter("all");
+                        setProductPageIndex(0);
                       }}
                     >
                       Clear filters
@@ -778,103 +811,158 @@ const ProductsPage = () => {
                   )}
                 </div>
               ) : (
-                <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-                  {filteredProducts.map((product) => (
-                    <Card
-                      key={product.id}
-                      size="sm"
-                      className="gap-0 rounded-xl border border-border/80 py-0 shadow-none transition-colors hover:border-primary/40"
-                    >
-                      <CardContent className="flex min-w-0 items-center gap-3 p-3">
-                        <div
-                          className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
-                            product.isAvailable
-                              ? "bg-primary/10 text-primary"
-                              : "bg-muted text-muted-foreground"
-                          } relative overflow-hidden`}
-                        >
-                          {product.imageUrl ? (
-                            <Image
-                              src={product.imageUrl}
-                              alt=""
-                              fill
-                              unoptimized
-                              sizes="40px"
-                              className="object-cover"
-                            />
-                          ) : product.isAvailable ? (
-                            <CircleCheck className="size-5" />
-                          ) : (
-                            <CircleOff className="size-5" />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <p className="truncate text-sm font-semibold">
-                              {product.name}
-                            </p>
-                            <Badge
-                              variant={
-                                product.isAvailable ? "secondary" : "outline"
-                              }
-                              className="h-5 px-1.5 text-[10px]"
+                <Table className="min-w-[640px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="pl-5">Product</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="pr-5 text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleProducts.map((product) => (
+                      <TableRow key={product.id}>
+                        <TableCell className="max-w-[18rem] pl-5">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div
+                              className={`relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg ${
+                                product.isAvailable
+                                  ? "bg-primary/10 text-primary"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
                             >
-                              {product.isAvailable ? "Live" : "Paused"}
-                            </Badge>
-                          </div>
-                          <div className="mt-1 flex min-w-0 items-center gap-2">
-                            <span className="truncate text-xs text-muted-foreground">
-                              {product.category || "Uncategorized"}
+                              {product.imageUrl ? (
+                                <Image
+                                  src={product.imageUrl}
+                                  alt=""
+                                  fill
+                                  unoptimized
+                                  sizes="40px"
+                                  className="object-cover"
+                                />
+                              ) : product.isAvailable ? (
+                                <CircleCheck
+                                  className="size-5"
+                                  aria-hidden="true"
+                                />
+                              ) : (
+                                <CircleOff
+                                  className="size-5"
+                                  aria-hidden="true"
+                                />
+                              )}
+                            </div>
+                            <span className="truncate font-medium text-foreground">
+                              {product.name}
                             </span>
-                            <span
-                              aria-hidden="true"
-                              className="size-1 shrink-0 rounded-full bg-border"
-                            />
-                            <span className="shrink-0 text-xs font-medium tabular-nums text-foreground">
-                              {formatPaisa(product.pricePaisa)}
-                            </span>
                           </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Edit ${product.name}`}
-                            title={`Edit ${product.name}`}
-                            onClick={() => editProduct(product)}
-                          >
-                            <Pencil />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={
-                              product.isAvailable
-                                ? `Pause ${product.name}`
-                                : `Make ${product.name} available`
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {product.category || "Uncategorized"}
+                        </TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">
+                          {formatPaisa(product.pricePaisa)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              product.isAvailable ? "secondary" : "outline"
                             }
-                            title={
-                              product.isAvailable
-                                ? "Hide from checkout"
-                                : "Show in checkout"
-                            }
-                            disabled={updateProductMutation.isPending}
-                            onClick={() => void toggleAvailability(product)}
                           >
-                            {product.isAvailable ? (
-                              <CircleOff />
-                            ) : (
-                              <CircleCheck />
-                            )}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                            {product.isAvailable ? "Available" : "Paused"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="pr-5">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Edit ${product.name}`}
+                              title={`Edit ${product.name}`}
+                              onClick={() => editProduct(product)}
+                            >
+                              <Pencil />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={
+                                product.isAvailable
+                                  ? `Pause ${product.name}`
+                                  : `Make ${product.name} available`
+                              }
+                              title={
+                                product.isAvailable
+                                  ? "Hide from checkout"
+                                  : "Show in checkout"
+                              }
+                              disabled={updateProductMutation.isPending}
+                              onClick={() => void toggleAvailability(product)}
+                            >
+                              {product.isAvailable ? (
+                                <CircleOff />
+                              ) : (
+                                <CircleCheck />
+                              )}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
+              {!productsQuery.isLoading &&
+                !productsQuery.isError &&
+                filteredProducts.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
+                    <p className="text-sm text-muted-foreground">
+                      Showing {productPageIndex * PRODUCTS_PER_PAGE + 1}–
+                      {Math.min(
+                        (productPageIndex + 1) * PRODUCTS_PER_PAGE,
+                        filteredProducts.length,
+                      )}{" "}
+                      of {filteredProducts.length}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setProductPageIndex((current) =>
+                            Math.max(0, current - 1),
+                          )
+                        }
+                        disabled={productPageIndex === 0}
+                      >
+                        <ChevronLeft />
+                        Previous
+                      </Button>
+                      <span className="min-w-16 text-center text-sm text-muted-foreground">
+                        Page {productPageIndex + 1} of {productPageCount}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setProductPageIndex((current) =>
+                            Math.min(productPageCount - 1, current + 1),
+                          )
+                        }
+                        disabled={productPageIndex + 1 >= productPageCount}
+                      >
+                        Next
+                        <ChevronRight />
+                      </Button>
+                    </div>
+                  </div>
+                )}
             </CardContent>
           </Card>
         </div>
