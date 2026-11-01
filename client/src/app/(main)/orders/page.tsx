@@ -78,6 +78,8 @@ const OrdersPage = () => {
   const ordersQuery = useInfiniteOrders(filters, validRange);
   const paymentMutation = useRecordOrderPayment();
   const [methods, setMethods] = useState<Record<string, PaymentMethod>>({});
+  const [pendingPaymentIds, setPendingPaymentIds] = useState<string[]>([]);
+  const [paymentError, setPaymentError] = useState("");
   const paymentKeys = useRef<
     Record<string, { method: PaymentMethod; key: string }>
   >({});
@@ -138,19 +140,32 @@ const OrdersPage = () => {
           ? pendingPayment.key
           : createUuid();
       paymentKeys.current[row.receipt.id] = { method, key: idempotencyKey };
-      paymentMutation.mutate(
-        {
+      setPaymentError("");
+      setPendingPaymentIds((current) =>
+        current.includes(row.receipt.id)
+          ? current
+          : [...current, row.receipt.id],
+      );
+      void paymentMutation
+        .mutateAsync({
           orderId: row.receipt.id,
           method,
           idempotencyKey,
-        },
-        {
-          onSuccess: () => {
-            delete paymentKeys.current[row.receipt.id];
-            if (statusFilter === "PLACED") setPageIndex(0);
-          },
-        },
-      );
+        })
+        .then(() => {
+          delete paymentKeys.current[row.receipt.id];
+          if (statusFilter === "PLACED") setPageIndex(0);
+        })
+        .catch(() => {
+          setPaymentError(
+            "Payment could not be confirmed. Refresh the order list and check its status before retrying.",
+          );
+        })
+        .finally(() => {
+          setPendingPaymentIds((current) =>
+            current.filter((id) => id !== row.receipt.id),
+          );
+        });
     } else {
       markAsPaid(row.receipt.id);
       if (statusFilter === "PLACED") setPageIndex(0);
@@ -298,20 +313,20 @@ const OrdersPage = () => {
           available.
         </p>
       )}
-      {paymentMutation.isError && (
+      {paymentError && (
         <div
           role="alert"
           className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive"
         >
-          <span>
-            Payment could not be confirmed. Refresh the order list and check its
-            status before retrying.
-          </span>
+          <span>{paymentError}</span>
           <Button
             type="button"
             variant="link"
             size="sm"
-            onClick={() => paymentMutation.reset()}
+            onClick={() => {
+              setPaymentError("");
+              paymentMutation.reset();
+            }}
           >
             Dismiss
           </Button>
@@ -358,6 +373,9 @@ const OrdersPage = () => {
                 {visibleReceipts.map((row) => {
                   const { receipt } = row;
                   const isPaid = receipt.status === "PAID";
+                  const isPaymentPending = pendingPaymentIds.includes(
+                    receipt.id,
+                  );
                   const date = isPaid
                     ? (receipt.paidAt ?? receipt.createdAt)
                     : receipt.createdAt;
@@ -413,7 +431,7 @@ const OrdersPage = () => {
                                 }));
                               }
                             }}
-                            disabled={paymentMutation.isPending}
+                            disabled={isPaymentPending}
                           >
                             <SelectTrigger
                               aria-label={`Payment method for receipt ${receipt.receiptNumber}`}
@@ -444,11 +462,11 @@ const OrdersPage = () => {
                           <Button
                             type="button"
                             onClick={() => markPaid(row)}
-                            disabled={paymentMutation.isPending}
+                            disabled={isPaymentPending}
                             size="default"
                           >
                             <CheckCircle2 />
-                            {paymentMutation.isPending
+                            {isPaymentPending
                               ? "Saving…"
                               : "Mark as paid"}
                           </Button>
