@@ -6,6 +6,7 @@ import { CircleDot } from "lucide-react";
 import { LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { logout } from "@/lib/services/auth.service";
@@ -81,7 +82,6 @@ const Navbar = () => {
       <div className="flex items-center gap-4">
         <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
         <div className="h-4 w-px bg-border" />
-        <h1 className="text-lg font-bold tracking-tight text-foreground"></h1>
         <h1 className="text-lg font-bold tracking-tight text-foreground">
           {getPageTitle()}
         </h1>
@@ -107,18 +107,20 @@ const Navbar = () => {
 
         <ModeToggle />
 
-        <button
+        <Button
           type="button"
           onClick={toggleSession}
           disabled={sessionPending || currentSessionQuery.isLoading}
-          className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+          variant="outline"
+          size="sm"
+          className="text-xs font-semibold"
         >
           {sessionPending
             ? "Saving…"
             : currentSessionQuery.data
               ? "Close session"
               : "Open session"}
-        </button>
+        </Button>
 
         <div className="flex items-center gap-2.5">
           <div className="flex-col items-end hidden sm:flex">
@@ -132,16 +134,18 @@ const Navbar = () => {
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow-sm">
             {initials || "--"}
           </div>
-          <button
+          <Button
             type="button"
             aria-label="Sign out"
             title="Sign out"
             disabled={logoutMutation.isPending}
             onClick={() => logoutMutation.mutate()}
-            className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-foreground"
           >
             <LogOut size={16} />
-          </button>
+          </Button>
         </div>
       </div>
       {sessionError && (
@@ -149,6 +153,14 @@ const Navbar = () => {
           {currentSessionQuery.data
             ? "This session has unpaid orders that need attention before closing."
             : "Session could not be opened. Please try again."}
+        </p>
+      )}
+      {logoutMutation.isError && (
+        <p
+          role="alert"
+          className="absolute right-6 top-14 z-10 rounded-md bg-destructive px-3 py-2 text-xs text-destructive-foreground"
+        >
+          Could not sign out. Please try again.
         </p>
       )}
     </header>
