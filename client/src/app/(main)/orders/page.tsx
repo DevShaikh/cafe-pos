@@ -8,6 +8,18 @@ import { toReceipt } from "@/lib/services/order.service";
 import { formatPaisa } from "@/lib/utils";
 import { dateIsInRange, dateRangeIsValid, makeDateFilters } from "@/lib/date-range";
 import type { PaymentMethod } from "@/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const paymentMethods: { value: PaymentMethod; label: string }[] = [
   { value: "CASH", label: "Cash" },
@@ -15,6 +27,9 @@ const paymentMethods: { value: PaymentMethod; label: string }[] = [
   { value: "CARD_MANUAL", label: "Card / bank" },
   { value: "OTHER", label: "Other" },
 ];
+
+const isPaymentMethod = (value: string): value is PaymentMethod =>
+  paymentMethods.some((method) => method.value === value);
 
 const OrdersPage = () => {
   const { receipts: localReceipts } = useOrderStore();
@@ -64,9 +79,9 @@ const OrdersPage = () => {
   const receiptCard = (row: (typeof receipts)[number], paid: boolean) => {
     const { receipt } = row;
     return (
-      <div
+      <Card
         key={receipt.id}
-        className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-card p-6 shadow-sm"
+        className="flex flex-wrap items-center justify-between gap-4 rounded-2xl p-6 shadow-sm"
       >
         <div className="flex items-center gap-6">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
@@ -75,11 +90,11 @@ const OrdersPage = () => {
           <div>
             <div className="flex items-center gap-3">
               <h4 className="text-lg font-bold text-foreground">#{receipt.receiptNumber}</h4>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize">
+              <Badge variant="secondary" className="capitalize">
                 {receipt.orderType.replace("_", " ").toLowerCase()}
-              </span>
+              </Badge>
               {!row.serverBacked && (
-                <span className="text-xs text-muted-foreground">Saved on this device</span>
+                <Badge variant="outline">Saved on this device</Badge>
               )}
             </div>
             <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
@@ -99,63 +114,82 @@ const OrdersPage = () => {
           {!paid && (
             <>
               {row.serverBacked && (
-                <select
-                  aria-label={`Payment method for receipt ${receipt.receiptNumber}`}
+                <Select
                   value={methods[receipt.id] ?? "CASH"}
-                  onChange={(event) =>
-                    setMethods((current) => ({ ...current, [receipt.id]: event.target.value as PaymentMethod }))
-                  }
+                  onValueChange={(value) => {
+                    if (isPaymentMethod(value)) {
+                      setMethods((current) => ({
+                        ...current,
+                        [receipt.id]: value,
+                      }));
+                    }
+                  }}
                   disabled={paymentMutation.isPending}
-                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
                 >
-                  {paymentMethods.map(({ value, label }) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    aria-label={`Payment method for receipt ${receipt.receiptNumber}`}
+                    className="w-36"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.map(({ value, label }) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
-              <button
+              <Button
+                type="button"
                 onClick={() => markPaid(row)}
                 disabled={paymentMutation.isPending}
-                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition-transform active:scale-[0.98] disabled:opacity-50"
+                size="lg"
+                className="h-12 rounded-xl px-5 py-3 shadow-sm transition-transform active:scale-[0.98]"
               >
                 <CheckCircle2 size={18} />
                 {paymentMutation.isPending ? "Saving…" : "Mark as paid"}
-              </button>
+              </Button>
             </>
           )}
         </div>
-      </div>
+      </Card>
     );
   };
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-y-auto">
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4">
-        <label className="grid gap-1 text-sm text-muted-foreground">
-          From
-          <input
+        <Field className="gap-1">
+          <FieldLabel htmlFor="orders-from-date">From</FieldLabel>
+          <Input
+            id="orders-from-date"
             type="date"
             value={fromDate}
             onChange={(event) => setFromDate(event.target.value)}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-foreground"
+            className="h-10 w-auto"
           />
-        </label>
-        <label className="grid gap-1 text-sm text-muted-foreground">
-          To
-          <input
+        </Field>
+        <Field className="gap-1">
+          <FieldLabel htmlFor="orders-to-date">To</FieldLabel>
+          <Input
+            id="orders-to-date"
             type="date"
             value={toDate}
             onChange={(event) => setToDate(event.target.value)}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-foreground"
+            className="h-10 w-auto"
           />
-        </label>
+        </Field>
         {(fromDate || toDate) && (
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => { setFromDate(""); setToDate(""); }}
-            className="rounded-lg px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10"
           >
             Clear dates
-          </button>
+          </Button>
         )}
       </div>
       {!validRange && (
@@ -170,23 +204,27 @@ const OrdersPage = () => {
         </p>
       )}
       {paymentMutation.isError && (
-        <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-          Payment could not be confirmed. Refresh the order list and check its status before retrying.
-          <button
+        <div role="alert" className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+          <span>
+            Payment could not be confirmed. Refresh the order list and check its status before retrying.
+          </span>
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
             onClick={() => paymentMutation.reset()}
-            className="ml-2 font-semibold underline underline-offset-2"
           >
             Dismiss
-          </button>
-        </p>
+          </Button>
+        </div>
       )}
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-foreground">Unpaid Orders</h3>
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+          <Badge variant="default" className="px-3 py-1 text-sm">
             {unpaidCount} pending
-          </span>
+          </Badge>
         </div>
         {unpaidReceipts.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border p-12 text-center text-muted-foreground">
@@ -202,9 +240,9 @@ const OrdersPage = () => {
       <section className="mt-8 space-y-4">
         <div className="flex items-center gap-2">
           <h3 className="text-lg font-bold text-muted-foreground">Paid Orders</h3>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+          <Badge variant="secondary">
             {paidReceipts.length} paid
-          </span>
+          </Badge>
         </div>
         {paidReceipts.length === 0 ? (
           <div className="rounded-2xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
@@ -215,13 +253,16 @@ const OrdersPage = () => {
         )}
       </section>
       {ordersQuery.hasNextPage && (
-        <button
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
           onClick={() => ordersQuery.fetchNextPage()}
           disabled={ordersQuery.isFetchingNextPage}
-          className="mx-auto rounded-xl border border-border px-5 py-3 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+          className="mx-auto rounded-xl px-5 py-3"
         >
           {ordersQuery.isFetchingNextPage ? "Loading…" : "Load more orders"}
-        </button>
+        </Button>
       )}
     </div>
   );
