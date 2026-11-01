@@ -3,9 +3,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import axios from "axios";
 import { z } from "zod";
-import { Coffee, LoaderCircle, LogIn } from "lucide-react";
+import { LoaderCircle, LogIn } from "lucide-react";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { authKeys, useCurrentStaff } from "@/lib/hooks/auth.hooks";
 import { getActiveStaff, login } from "@/lib/services/auth.service";
@@ -115,9 +116,14 @@ const LoginPage = () => {
       <Card className="relative w-full max-w-md gap-0 rounded-3xl border-border/80 p-7 shadow-xl shadow-foreground/5 sm:p-9">
         <CardContent className="p-0">
           <div className="mb-8 flex flex-col items-center text-center">
-            <div className="mb-5 flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
-              <Coffee className="size-6" aria-hidden="true" />
-            </div>
+            <Image
+              src="/icon.svg"
+              alt=""
+              width={56}
+              height={56}
+              priority
+              className="mb-5 size-14 rounded-2xl shadow-sm"
+            />
             <p className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Cafe POS
             </p>
