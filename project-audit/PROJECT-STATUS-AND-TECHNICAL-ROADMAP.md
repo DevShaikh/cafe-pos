@@ -1,8 +1,8 @@
 # Cafe POS — Project Status and Technical Roadmap
 
-**Status basis:** Current repository source, the existing consolidated audit, and available project documentation  
-**Last reviewed:** 2026-11-01  
-**Review type:** Source review, targeted browser verification, and requested quality checks; focused login, Orders/sidebar UI, and Electron startup-persistence follow-ups verified on 2026-11-01.
+**Status basis:** Current repository source, the existing consolidated audit, and available project documentation
+**Last reviewed:** 2026-11-07
+**Review type:** Source review and targeted implementation checks; product/category management was added with an additive SQLite migration and authenticated API operations.
 
 > Read this document before beginning a new project task. Verify relevant details against current source before editing; this is a continuity aid, not a substitute for source review.
 
@@ -24,12 +24,15 @@ Treat the current source and this status document as the implementation referenc
 
 ## Completed and currently implemented features
 
-The following are supported by current source and/or verification completed on 2026-11-01. This is implementation status, not proof of production readiness.
+The following are supported by current source; test and browser evidence is dated in the Testing status section. This is implementation status, not proof of production readiness.
 
 - Catalog search and category filters now work against the loaded menu; unavailable products are visible but disabled by default, and can be hidden from the grid.
 - Product-list query parameters are Zod-validated; repeated/invalid filters return a 400 instead of reaching the service as malformed values. The API hides unavailable products unless explicitly asked to include them.
+- Product and category management is available at `/products`. Authenticated API operations create/update products, change checkout availability, and create/rename/delete categories. Existing category strings are backfilled to a category registry by an additive migration; category renames update assigned products transactionally, and category deletion is rejected while products remain assigned. Products are retained rather than hard-deleted so order snapshots and references remain intact.
+- Menu management uses the existing shadcn Button, Card, Field, Input, Select, Badge, and official Textarea primitives. It exposes validation/API errors, loading states, product search, category assignment, and availability state.
 - Product prices and server order/payment amounts use integer paisa. The API returns `pricePaisa`; display formatting occurs in the client.
 - Staff list, PIN login, current-session lookup, cookie logout, and authenticated route gating are implemented. The login form now binds its visible default staff choice to the submitted ID; wrong credentials remain rejected, and the browser session survives a reload.
+- Protected staff and menu-management routes require an active authenticated staff member. Role-based permissions are intentionally out of scope while cashier permissions are equal.
 - Login uses four masked shadcn OTP slots for the required numeric PIN. Sign-in remains disabled until all four digits are entered and while a request is pending; changing staff clears the prior PIN and error. The login card was refined for hierarchy and narrow-screen fit. These UI states and invalid-credential feedback were checked in-browser; successful authentication behavior was verified in the prior production-browser pass.
 - Cashier register sessions support opening, current/history lookup, and closing; checkout requires an open session and closing is blocked while unpaid orders remain.
 - New checkout sends product IDs, quantities, order type, and an idempotency key. The server checks availability, reads settings, calculates totals, allocates a receipt number, stores product snapshots, and writes order, event, audit, counter, and idempotency data transactionally.
@@ -44,12 +47,11 @@ The following are supported by current source and/or verification completed on 2
 
 ## Incomplete features
 
-- **Product management:** API currently exposes product listing only. Create/update/delete and an operational catalog editor are absent.
+- **Inventory:** Product availability is managed, but stock quantities, ingredients, purchase cost, and stock movement are not tracked.
 - **Settings:** The Settings screen is a placeholder. Server settings are seeded, but there is no user-facing settings workflow.
 - **Tax consistency:** The server reads `Settings.taxRateBps`; the receipt panel currently displays/calculates a fixed 8%. The displayed estimate can differ if the stored setting changes.
 - **Order correction:** No edit/regenerate, void, refund, or cashier-facing error-correction flow is implemented.
 - **Cash reconciliation:** Opening/closing cash counts and cash variance are not modeled in register sessions. Payment records method and order amount, not a full tender/received/change workflow.
-- **Authorization policy:** Roles exist in staff data/token, but route middleware enforces authentication rather than role-specific permissions. Define policy only when management operations exist.
 - **Recovery:** No verified backup/restore tool or restore runbook was found. Electron preserves browser storage and clears only the `pos_session` cookie at each launch; actual receipt survival across a full desktop restart remains to be verified.
 - **Desktop packaging:** Electron is not a self-contained offline installer and does not start packaged local services.
 - **Reports:** Current summary totals and order-type breakdown exist; report printing remains pending in the product spec.
@@ -64,8 +66,9 @@ The following are supported by current source and/or verification completed on 2
 3. **API binding:** `server/src/server.ts` calls `server.listen(env.port)` without explicitly binding to `127.0.0.1`. Local firewall/network exposure depends on runtime defaults and environment; loopback-only should be the default for this single-computer application.
 4. **Electron startup persistence:** `electron/main.cjs` now preserves local browser storage and removes only the `pos_session` cookie at startup, requiring a new PIN after each app launch. Electron startup behavior is covered by a mocked lifecycle check; receipt survival across a real desktop restart is still unverified.
 5. **Destructive historical migration:** `20261026175721_add_pos_core_models` drops the old `products` table. `docs/backend-plan.md` says it was applied to the development database. Preserve migration history; test a safe upgrade/rebaseline against a copied database before any database with real catalog data is upgraded.
-6. **No verified backup/recovery:** The SQLite database is local and ignored by Git. No backup/restore process has been exercised; a hardware/database failure could lose sales data.
-7. **Logout does not revoke JWT server-side:** It clears the browser cookie; a copied token remains valid until expiry or staff deactivation. Lower urgency for a local single terminal, but should be documented.
+6. **Category consistency is enforced in the API:** `Product.category` remains a text field for compatibility with the checkout contract. Category rename and deletion safeguards run transactionally through the API; direct database edits can leave the category registry out of sync.
+7. **No verified backup/recovery:** The SQLite database is local and ignored by Git. No backup/restore process has been exercised; a hardware/database failure could lose sales data.
+8. **Logout does not revoke JWT server-side:** It clears the browser cookie; a copied token remains valid until expiry or staff deactivation. Lower urgency for a local single terminal, but should be documented.
 
 ### Functionality and reliability
 
@@ -74,6 +77,7 @@ The following are supported by current source and/or verification completed on 2
 - **Resolved 2026-11-01:** Login did not clearly communicate its disabled state and used a plain password field. It now requires a complete four-digit numeric PIN in four masked shadcn OTP slots, clears PIN/error when staff changes, and explains the incomplete state. Browser checks verified partial PIN remains disabled, complete PIN enables submit, and invalid credentials display an error.
 - **Resolved 2026-11-01:** Checkout's closed-session prerequisite was easy to miss. The receipt panel now prominently explains how to open a cashier session and provides retry guidance if session status cannot be fetched. The closed-session notice was confirmed in the browser.
 - **Resolved 2026-11-01:** Catalog search/category controls were inert, unavailable products could be added, and repeated product query parameters were not validated. Search/category filtering, unavailable-product UI/API handling, and Zod query validation are now implemented.
+- **Implemented 2026-11-07:** Product/category maintenance now has authenticated CRUD for categories and product create/update/availability operations. Product deletion is intentionally omitted; categories with assigned products cannot be deleted. Existing categories and uncategorized products are preserved/backfilled by the new additive migration.
 - Client checkout displays fixed 8% tax while server totals use the persisted setting.
 - The error middleware explicitly maps malformed JSON but may classify other parser errors (for example oversized bodies) as generic 500 responses.
 - Error handler does not explicitly delegate when response headers have already been sent.
@@ -115,17 +119,18 @@ The following are supported by current source and/or verification completed on 2
 ## Testing status
 
 - Only discovered test file: `server/src/app.test.ts`, using Node’s built-in runner.
-- Current test cases cover health success/failure, a Helmet header, configured CORS, unknown-route JSON, malformed JSON, masking unexpected errors, repeated product-filter rejection, and unavailable-product API filtering.
+- Current test cases cover health success/failure, a Helmet header, configured CORS, unknown-route JSON, malformed JSON, masking unexpected errors, product-filter validation, unavailable-product filtering, category authentication/creation/rename/deletion safeguards, and product creation/availability updates.
 - **Verified 2026-11-01:** `npm run lint`, `npm run typecheck`, `npm run test` (9 passing), and `npm run build` passed. Production-browser checks covered login validation/rejection/success/session persistence, catalog search/category/empty-state behavior, and order/report filter controls.
 - **Verified 2026-11-01 follow-up:** `npm run lint --prefix client`, `npm run typecheck --prefix client`, and `npm run build --prefix client` passed after the login OTP, Orders layout, and session guidance changes. Browser checks covered login button state and masked PIN at desktop/mobile sizes, invalid-credential feedback, Orders layout at 900px, and the closed-session checkout notice. Sidebar checks with stubbed staff/session data confirmed the favicon logo, active navigation, staff/role/session details, and expanded, collapsed, and mobile drawer layouts. These browser tests used a stubbed API for UI states and were not a new successful-authentication integration test.
+- **Verified 2026-11-07:** Server tests passed (15/15); server/client lint, server/client TypeScript checks, and both production builds passed. Prisma schema validation passed. `npm run db:migrate --prefix server` applied the full migration history, including the new menu-category migration, to a fresh temporary SQLite database; a separate in-memory SQLite fixture verified category data, case variants, and uncategorized products are backfilled. The new `/products` route and sidebar link rendered in-browser with mocked authentication. Full interactive browser validation was not completed because the local API was unavailable and browser interception was inconsistent; the authenticated API operations were covered by server tests.
 - No client automated tests were found. Automated coverage remains absent for order totals, payment transitions, idempotency replay/conflict, cashier session constraints, migration preservation, seed safety, print failure/retry, and backup restoration. The receipt print-failure flow was not manually exercised because browser print dialogs are not available in the automated browser session.
 - No performance or backup/restore exercise was run. The previous `npm audit` scan is historical and was not repeated for this update.
 
 ## Documentation status and source-of-truth cautions
 
-The consolidated audit and the status document were consulted. Several prior supporting docs are absent from the current worktree; this update intentionally changes only this status document, as requested.
+The consolidated audit and status document were consulted. Several prior supporting docs are absent from the current worktree. This update refreshes the README and this status document to reflect product/category management; no other documentation was changed.
 
-Documentation was reconciled on 2026-11-01. The root README, backend plan, product specification, decisions, Copilot instructions, Cline rules, and next-step planning skill now reflect current implementation or point to this status document. `docs/STATE-ANALYSIS.md` is retained only as a pointer because it was not approved for deletion. `client/AGENTS.md` retains the generated Next.js guidance and should be read before client changes.
+The broader documentation was reconciled on 2026-11-01. The root README, backend plan, product specification, decisions, Copilot instructions, Cline rules, and next-step planning skill then reflected current implementation or pointed to this status document. `docs/STATE-ANALYSIS.md` is retained only as a pointer because it was not approved for deletion. `client/AGENTS.md` was absent from the current worktree; consult the installed Next.js guides under `client/node_modules/next/dist/docs/` before future client changes.
 
 Continue to treat current source as authoritative for behavior. Use this document for progress and update it after significant work.
 
@@ -146,7 +151,7 @@ Continue to treat current source as authoritative for behavior. Use this documen
 ### Phase 2 — Improve daily cashier operations
 
 1. Use the same configured tax rate in the checkout display and server calculation.
-2. Add minimal product/settings maintenance and safe order correction/void controls according to the agreed cafe workflow.
+2. Complete user-facing settings management. Keep order correction/void controls out of scope unless the cashier workflow is explicitly approved.
 3. Improve parser/not-found error normalization and continue testing logout and receipt print failure/retry feedback.
 4. Reconcile README and decision/spec status with verified behavior; document supported Node runtime.
 

@@ -2,7 +2,7 @@
 
 A locally running cafe point-of-sale app for the counter. Built as a learning and portfolio project.
 
-**Status:** Staff login, cashier sessions, server-backed checkout and payments, order history, and summary reports are implemented. Historical receipts may still exist only in browser storage. The product catalog is read-only through the UI, and settings are a placeholder. See [`project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md`](project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md) for current progress and priorities; verify behavior against source before changing it.
+**Status:** Staff login, cashier sessions, server-backed checkout and payments, order history, summary reports, and authenticated product/category management are implemented. Historical receipts may still exist only in browser storage. Settings are a placeholder. See [`project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md`](project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md) for current progress and priorities; verify behavior against source before changing it.
 
 ---
 
@@ -11,10 +11,11 @@ A locally running cafe point-of-sale app for the counter. Built as a learning an
 The cashier uses the system to:
 
 1. Sign in with a staff PIN and open a cashier session.
-2. Add products to a cart and choose an order type (Dine in / Takeaway; label only).
-3. Submit the order. The server validates current product data, calculates totals, saves an unpaid order, and returns receipt data for browser printing.
-4. Record payment for a server-backed order after the cashier confirms cash or another manual payment method.
-5. Review paginated orders and summary sales reports.
+2. Maintain categories and menu products from the Menu screen; unavailable products remain in history but are excluded from checkout.
+3. Add products to a cart and choose an order type (Dine in / Takeaway; label only).
+4. Submit the order. The server validates current product data, calculates totals, saves an unpaid order, and returns receipt data for browser printing.
+5. Record payment for a server-backed order after the cashier confirms cash or another manual payment method.
+6. Review paginated orders and summary sales reports.
 
 Payment is manual; the app records the cashier's confirmation and selected method. Editing, voiding, refunds, and cash reconciliation are not implemented. Legacy device-saved receipts remain separate from server orders.
 
@@ -96,7 +97,7 @@ npm run dev
 ```text
 client/          Next.js app
   src/
-    app/         App Router pages: (main)/catalog, (main)/orders, (main)/reports, (main)/settings
+    app/         App Router pages: (main)/catalog, (main)/products, (main)/orders, (main)/reports, (main)/settings
     components/  layout/ (Sidebar, Navbar), modules/ (ProductCard, ReceiptPanel, PrintReceipt), ui/ (shadcn)
     lib/         hooks/ (product.hooks), services/ (api-client, product.service), utils.ts
     store/       cart.store.ts, order.store.ts
@@ -117,7 +118,8 @@ docs/
 ## Current gaps
 
 - Catalog search/category filters are wired; unavailable products are clearly marked and cannot be added to a receipt.
-- Product and settings management, order editing/voiding/refunds, and cash reconciliation are not implemented.
+- Product and category maintenance is available at `/products`. Product records are retained and can be marked unavailable; categories with assigned products cannot be deleted.
+- Settings management, stock/inventory tracking, order editing/voiding/refunds, and cash reconciliation are not implemented.
 - Electron preserves browser storage and clears only the previous login cookie on startup, so staff must enter a PIN after each app launch. Legacy local receipts should remain stored; survival across a real desktop restart is not yet verified. Electron is not yet a self-contained offline installer.
 - A known `1234` administrator PIN is created by the seed when no admin exists. Do not treat the seeded account as production-ready.
 - Backups, restoration, and critical checkout/payment behavior have not been operationally tested.
