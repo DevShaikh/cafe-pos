@@ -1,5 +1,4 @@
 import { prismaClient } from "../src/lib/prismaClient";
-import bcrypt from "bcryptjs";
 import products from "./products";
 
 async function main() {
@@ -19,26 +18,7 @@ async function main() {
   });
   console.log("✅ Settings created:", settings.cafeName);
 
-  // 2. Seed Admin User (Default PIN: 1234)
-  const existingAdmin = await prismaClient.staff.findFirst({
-    where: { role: "ADMIN" },
-  });
-
-  if (!existingAdmin) {
-    const pinHash = await bcrypt.hash("1234", 10);
-    const admin = await prismaClient.staff.create({
-      data: {
-        name: "Admin",
-        role: "ADMIN",
-        pinHash: pinHash,
-      },
-    });
-    console.log("✅ Admin user created. Name:", admin.name, "| PIN: 1234");
-  } else {
-    console.log("ℹ️ Admin user already exists.");
-  }
-
-  // 3. Add missing demo products without replacing the cafe's catalog.
+  // Add missing sample products without replacing the cafe's catalog.
   const existingProducts = await prismaClient.product.findMany({
     select: { name: true, category: true },
   });

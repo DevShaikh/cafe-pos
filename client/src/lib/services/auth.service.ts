@@ -15,6 +15,25 @@ export type LoginInput = {
   pin: string;
 };
 
+export type InitialSetupInput = {
+  name: string;
+  pin: string;
+};
+
+export const getSetupStatus = (signal?: AbortSignal) =>
+  apiClient.get<{
+    success: boolean;
+    message: string;
+    data: { setupRequired: boolean };
+  }>("/auth/setup-status", { signal });
+
+export const setupInitialAdmin = (input: InitialSetupInput) =>
+  apiClient.post<{
+    success: boolean;
+    message: string;
+    data: StaffSession;
+  }>("/auth/setup", input);
+
 export const getActiveStaff = (signal?: AbortSignal) =>
   apiClient.get<{
     success: boolean;

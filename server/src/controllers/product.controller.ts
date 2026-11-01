@@ -101,6 +101,10 @@ export const getProductImage = (
   next: NextFunction,
 ) => {
   const filename = req.params.filename;
+  if (typeof filename !== "string") {
+    next(new AppError(404, ERROR_CODES.NOT_FOUND, "Product image not found."));
+    return;
+  }
   const imagePath = productService.getProductImage(filename);
   if (!imagePath) {
     next(new AppError(404, ERROR_CODES.NOT_FOUND, "Product image not found."));

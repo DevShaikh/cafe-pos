@@ -80,7 +80,20 @@ process.on("unhandledRejection", (reason: unknown) => {
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-server.listen(env.port, () => {
+if (process.env.CAFE_POS_DESKTOP === "1") {
+  let commandBuffer = "";
+  process.stdin.setEncoding("utf8");
+  process.stdin.on("data", (chunk: string) => {
+    commandBuffer += chunk;
+    if (commandBuffer.includes("\n")) {
+      const command = commandBuffer.trim();
+      commandBuffer = "";
+      if (command === "shutdown") shutdown("desktop request");
+    }
+  });
+}
+
+server.listen(env.port, "127.0.0.1", () => {
   console.log(`Server running in ${env.nodeEnv} mode on port ${env.port}`);
-  console.log(`Access API at http://localhost:${env.port}/api`);
+  console.log(`Access API at http://127.0.0.1:${env.port}/api`);
 });

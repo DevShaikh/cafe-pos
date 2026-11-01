@@ -1,8 +1,8 @@
 # Cafe POS — Project Status and Technical Roadmap
 
-**Status basis:** Current repository source, the existing consolidated audit, and available project documentation
-**Last reviewed:** 2026-11-07
-**Review type:** Source review and targeted implementation checks; product/category management was added with an additive SQLite migration and authenticated API operations.
+**Status basis:** Current repository source, the existing consolidated audit, and targeted implementation/build/smoke checks
+**Last reviewed:** 2026-11-01
+**Review type:** Source review and Windows desktop release-preparation work. The packaged first-run flow is not yet verified end-to-end.
 
 > Read this document before beginning a new project task. Verify relevant details against current source before editing; this is a continuity aid, not a substitute for source review.
 
@@ -16,7 +16,7 @@ Cafe POS is a local, single-cashier point-of-sale application intended to run on
 - **API:** Node.js, Express, TypeScript, Zod request validation, cookie-based JWT authentication, bcryptjs PIN hashing, Helmet, and CORS.
 - **Database:** SQLite in a local file, accessed through Prisma 7 and the `better-sqlite3` adapter.
 - **Client state/data:** Zustand stores the cart and older locally persisted receipts; TanStack Query manages API queries and mutations; Axios is used by client services.
-- **Desktop:** Electron opens the Next.js UI at `http://localhost:3001`. The packaged and development branches currently use the same local URL; the repository does not provide a complete packaged/offline service lifecycle.
+- **Desktop:** Electron now has a Windows NSIS packaging path that bundles a Node runtime, starts the packaged Next.js client and Express API on loopback, and stores the database, product photos, and generated JWT secret under the app's per-user data directory. Packaged authentication/session behavior has an unresolved smoke-test failure; do not consider this a finished/offline-ready release.
 - **API boundaries:** Browser requests go through HTTP and the Next.js proxy to Express. Client code must not access Prisma or SQLite directly.
 - **Server organization:** Routes → controllers → services → Prisma. Prisma schema is split across `server/prisma/schema/`, with migration history under `server/prisma/migrations/`.
 
@@ -42,8 +42,12 @@ The following are supported by current source; test and browser evidence is date
 - Manual payment recording updates unpaid server orders with a selected method. Server-backed order history returns filtered counts and unpaid counts, supports cursor pagination, date filters, receipt-number search, and an Unpaid-only view, and displays the recorded payment method; sales reports aggregate paid orders with date/session filters.
 - Sales Reports presents collected payments, paid-order count, and average order value as summary cards, with a tabular breakdown by dine-in/takeaway and totals. Date and cashier-session filters use the shared shadcn control styling.
 - Settings at `/settings` lets authenticated staff enable/disable checkout tax and configure a rate from 0% to 100% in hundredth-percent increments. Changes are audit-logged; existing orders keep their saved totals and rate. Checkout preview, server order totals, and printed receipts use the saved setting.
+- Settings also exposes manual local backup and restore controls. The desktop utility copies the SQLite database and product photos, inspects a backup before restore, and makes a pre-restore safety copy. Backup creation and inspection were smoke-tested separately; end-to-end restore, rollback, and recovery are not verified.
+- A desktop first-run setup flow provisions the initial administrator with a hashed four-digit PIN and does not rely on a seeded shared credential. Login and initial setup requests have an in-memory per-IP rate limit. The API binds to loopback in the desktop startup configuration.
+- A Windows x64 NSIS packaging pipeline stages a Next.js standalone client, production server dependencies and Prisma migrations, and a bundled Node runtime. Electron starts and supervises the local API/client processes, creates a per-install JWT secret, logs startup, and uses a migration guard with safety backup handling for recognized existing databases.
+- Receipt paper width can be configured as 58mm or 80mm and is reflected in the print template. Physical printer-driver output has not been tested.
 - Orders and Reports also show historical receipts persisted in the browser. Their payment state remains local; they are not converted into server records automatically.
-- Receipt printing uses `react-to-print` and a custom 80mm template through the browser print UI; print failures now retain the created receipt and expose a retry action.
+- Receipt printing uses `react-to-print` and a configurable 58mm/80mm template through the browser print UI; print failures retain the created receipt and expose a retry action.
 - Client login, catalog, orders, reports, and receipt controls use shadcn Button/Input and Field/Select/Card/Badge primitives. Login additionally uses the official OTP input and Alert components; the `input-otp` dependency was added through the configured shadcn CLI. The configured shadcn registry does not provide the legacy Form wrapper; forms use the official Field pattern and existing Zod validation.
 - Orders and Expenses histories use the shadcn Table primitive. Orders combines paid and unpaid receipts in one full-width, chronologically sorted table to avoid wasted space when the lists are uneven; unpaid rows retain payment controls. The shared content shell and navbar now shrink at narrower desktop widths rather than overflowing. Date filters remain usable in the narrower content area.
 - The sidebar reuses the favicon POS logo, groups workspace and management navigation, and shows the signed-in staff name/role plus live cashier-session status instead of hard-coded profile details. Branding and staff context remain clear in expanded, collapsed, and mobile drawer states.
@@ -56,8 +60,9 @@ The following are supported by current source; test and browser evidence is date
 - **Settings:** Cafe identity and receipt customization fields exist in the database but are not yet editable in the Settings screen. Checkout tax enablement and rate are configurable.
 - **Order correction:** No edit/regenerate, void, refund, or cashier-facing error-correction flow is implemented.
 - **Cash reconciliation:** Opening/closing cash counts and cash variance are not modeled in register sessions. Payment records method and order amount, not a full tender/received/change workflow.
-- **Recovery:** No verified backup/restore tool or restore runbook was found. Electron preserves browser storage and clears only the `pos_session` cookie at each launch; actual receipt survival across a full desktop restart remains to be verified.
-- **Desktop packaging:** Electron is not a self-contained offline installer and does not start packaged local services.
+- **Recovery:** Backup/restore UI and SQLite/photo-copy utilities exist, but restore, rollback, and full recovery have not been exercised end to end. Backup files must be kept separate from the POS computer to protect against disk failure.
+- **Desktop packaging:** A Windows NSIS installer pipeline and packaged local service startup exist, but the end-to-end login/session flow currently fails in the PowerShell smoke test described below. Installer installation/upgrade, restart persistence, and offline behavior still require acceptance testing.
+- **Release trust:** The installer is unsigned and uses Electron's default icon; no signing certificate or branded application icon is configured.
 - **Reports:** Current summary totals and order-type breakdown exist; report printing remains pending in the product spec.
 - **Accessibility/polish:** Keyboard/focus/contrast work is listed as incomplete in the product spec and has not been fully verified.
 
@@ -65,14 +70,13 @@ The following are supported by current source; test and browser evidence is date
 
 ### Security and data integrity
 
-1. **Known default administrator PIN:** `server/seeds/index.ts` creates an `Admin` with PIN `1234` when none exists and logs the PIN. The setup guide instructs operators to run the seed. Replace this with safe first-run provisioning before real use.
-2. **No login throttling:** No rate limiter or failed-login backoff is configured. `express-rate-limit` is not a direct server dependency despite the obsolete Stage 5 report’s claim.
-3. **API binding:** `server/src/server.ts` calls `server.listen(env.port)` without explicitly binding to `127.0.0.1`. Local firewall/network exposure depends on runtime defaults and environment; loopback-only should be the default for this single-computer application.
-4. **Electron startup persistence:** `electron/main.cjs` now preserves local browser storage and removes only the `pos_session` cookie at startup, requiring a new PIN after each app launch. Electron startup behavior is covered by a mocked lifecycle check; receipt survival across a real desktop restart is still unverified.
-5. **Destructive historical migration:** `20261026175721_add_pos_core_models` drops the old `products` table. `docs/backend-plan.md` says it was applied to the development database. Preserve migration history; test a safe upgrade/rebaseline against a copied database before any database with real catalog data is upgraded.
-6. **Category consistency is enforced in the API:** `Product.category` remains a text field for compatibility with the checkout contract. Category rename and deletion safeguards run transactionally through the API; direct database edits can leave the category registry out of sync.
-7. **No verified backup/recovery:** The SQLite database is local and ignored by Git. No backup/restore process has been exercised; a hardware/database failure could lose sales data.
-8. **Logout does not revoke JWT server-side:** It clears the browser cookie; a copied token remains valid until expiry or staff deactivation. Lower urgency for a local single terminal, but should be documented.
+1. **Packaged session smoke test failed:** The packaged setup endpoint returned HTTP 201, but a subsequent authenticated `/auth/me` call returned 401 in a PowerShell web-session test. The API sets `secure: true` for production cookies while the app uses loopback HTTP. This is a credible cause, but it is not confirmed as the root cause; inspect actual `Set-Cookie` handling and verify in the packaged runtime. Browser testing was declined and must not be retried without user permission.
+2. **Login throttling is process-local:** Setup and login use an in-memory per-IP request limit. This is proportionate for the single-process local app, but it resets on restart and is not a durable lockout policy.
+3. **Migration compatibility:** `20261026175721_add_pos_core_models` drops the old `products` table. The desktop guard avoids applying migrations to certain unrecognized nonempty databases, and recognized upgrades create a safety backup, but existing customer database upgrade/rebaseline behavior has not been rehearsed. Preserve migration history and test only on copies.
+4. **Backup recovery is not verified end to end:** Utility-level backup/inspection succeeded, but restoration, rollback, and application recovery from a restored copy remain untested.
+5. **Category consistency is enforced in the API:** `Product.category` remains a text field for compatibility with the checkout contract. Category rename and deletion safeguards run transactionally through the API; direct database edits can leave the category registry out of sync.
+6. **Logout does not revoke JWT server-side:** It clears the browser cookie; a copied token remains valid until expiry or staff deactivation. Lower urgency for a local single terminal, but should be documented.
+7. **Installer trust/signing:** The Windows installer is unsigned and uses Electron's default icon. SmartScreen warnings and distribution trust remain release concerns.
 
 ### Functionality and reliability
 
@@ -83,6 +87,7 @@ The following are supported by current source; test and browser evidence is date
 - **Resolved 2026-11-01:** Checkout's closed-session prerequisite was easy to miss. The receipt panel now prominently explains how to open a cashier session and provides retry guidance if session status cannot be fetched. The closed-session notice was confirmed in the browser.
 - **Resolved 2026-11-01:** Catalog search/category controls were inert, unavailable products could be added, and repeated product query parameters were not validated. Search/category filtering, unavailable-product UI/API handling, and Zod query validation are now implemented.
 - **Implemented 2026-11-07:** Product/category maintenance now has authenticated CRUD for categories and product create/update/availability operations. Product deletion is intentionally omitted; categories with assigned products cannot be deleted. Existing categories and uncategorized products are preserved/backfilled by the new additive migration.
+- **Implemented, release verification pending (2026-11-01):** Replaced the shared seeded admin PIN with first-run administrator provisioning, added setup/login throttling, loopback-only desktop API configuration, local backup/restore controls for database and product photos, migration safeguards, Windows installer staging/startup, and selectable 58mm/80mm receipt sizing. These changes do not constitute release readiness; see the packaged-session failure below.
 - The error middleware explicitly maps malformed JSON but may classify other parser errors (for example oversized bodies) as generic 500 responses.
 - Error handler does not explicitly delegate when response headers have already been sent.
 - Request and error logs do not share a request correlation ID; error output is console-based.
@@ -109,7 +114,7 @@ The following are supported by current source; test and browser evidence is date
 - `@tanstack/react-query-devtools` appears unused; `@types/bcryptjs` is redundant for a package that ships types.
 - `shadcn` is declared as a production client dependency despite mainly being tooling, but global CSS imports it; change classification only after verifying builds.
 - A prior dependency audit snapshot dated 2026-11-01 reported advisory matches: root 1 high; client 3 high, 20 moderate, 2 low; server 1 high, 12 moderate. High matches included Electron 44.9.0, `body-parser` 2.3.0, `follow-redirects` 1.16.1, and `systeminformation` 5.33.15. This is a time-bound advisory scan, not proof of exploitability. Re-run a fresh audit before deployment.
-- README states Node 20.9+, while the prior locked-package engine review found installed Electron, Prisma, and `cn` require newer Node versions. Set a common tested Node minimum.
+- README documents Node 22.12+ for development/build tooling; the desktop installer bundles Node 24.18.0 for its packaged services. Validate this support matrix on clean Windows 10/11 machines before release.
 - Older Stage 1–7 reports are no longer in the audit directory; their consolidated findings are retained in `project-audit/FINAL-PROJECT-AUDIT.md`. Do not rely on their obsolete implementation examples.
 
 ## Performance considerations for one computer
@@ -128,16 +133,18 @@ The following are supported by current source; test and browser evidence is date
 - **Verified 2026-11-01 follow-up:** `npm run lint --prefix client`, `npm run typecheck --prefix client`, and `npm run build --prefix client` passed after the login OTP, Orders layout, and session guidance changes. Browser checks covered login button state and masked PIN at desktop/mobile sizes, invalid-credential feedback, Orders layout at 900px, and the closed-session checkout notice. Sidebar checks with stubbed staff/session data confirmed the favicon logo, active navigation, staff/role/session details, and expanded, collapsed, and mobile drawer layouts. These browser tests used a stubbed API for UI states and were not a new successful-authentication integration test.
 - **Verified 2026-11-07:** Server tests passed (15/15); server/client lint, server/client TypeScript checks, and both production builds passed. Prisma schema validation passed. `npm run db:migrate --prefix server` applied the full migration history, including the new menu-category migration, to a fresh temporary SQLite database; a separate in-memory SQLite fixture verified category data, case variants, and uncategorized products are backfilled. The new `/products` route and sidebar link rendered in-browser with mocked authentication. Full interactive browser validation was not completed because the local API was unavailable and browser interception was inconsistent; the authenticated API operations were covered by server tests.
 - **Search, pagination, and table verification:** Server tests passed (17/17), including assertions that order search scopes both returned orders and unpaid counts, and expense search scopes descriptions, notes, and aggregates. Client/server TypeScript checks and production builds passed; server lint passed. Browser checks confirmed both history tables render their headers and rows, search returns filtered results/counts, and clearing expense search restores the unfiltered 10-entry page. At a 390px viewport, both tables remain in horizontally scrollable containers and the unpaid payment action remains available. Orders and the shadcn Table primitive pass targeted lint; linting Expenses with its existing `react-hooks/set-state-in-effect` finding suppressed also passes. Full client lint remains blocked by that pre-existing rule at `expenses/page.tsx`, where the mount effect initializes the local date-time field.
+- **Windows release-preparation verification (2026-11-01):** Server lint/typecheck, client typecheck, targeted lint for changed client files, and server tests passed (17/17). A fresh temporary SQLite database received all eight migrations and passed `PRAGMA integrity_check`; a standalone backup utility smoke test created and inspected a backup copy. `npm run build:desktop` passed. `npm run package:win` produced an installer before the final dependency-copy hook was added; the packaged app was then retested unpacked and successfully started API/Next and served setup. The setup endpoint returned 201, but the subsequent authenticated `/auth/me` request returned 401 in the PowerShell cookie test. The installer needs a clean rebuild after resolving/confirming this behavior. Chromium/Electron cookie behavior was not tested because browser access was declined.
+- **Known release blockers:** Backup restore/rollback was not exercised end to end; no actual 58mm/80mm printer was tested; install/upgrade/restart persistence is unverified; installer signing and a custom icon are absent. `npm run lint` still fails on the pre-existing Expenses `react-hooks/set-state-in-effect` finding. Package audit findings were reported by dependency installation (root: 15 moderate, 1 high; server: 12 moderate, 1 high; staged production server: 1 moderate, 1 high); no audit remediation was attempted.
 - **Tax settings implementation (2026-11-01):** Added authenticated, audit-logged tax settings and a persistent enable/disable flag. Checkout estimates, server order totals, and printed receipts use the saved configuration. A migration was generated; although a prior run reported it applied, current inspection found the local database has the tax column but no `_prisma_migrations` table, and Prisma reports all eight migrations as pending. Do not run the migrations against this database until its history is reconciled safely.
 - **Power-loss recovery verification (2026-11-01):** Restored NUL-corrupted README/settings UI files and missing settings query/controller/service files from the last clean settings implementation; order creation now snapshots an effective zero tax rate when tax is disabled. A source scan found no remaining NUL bytes in text files. Client/server typechecks and production builds plus Prisma schema validation passed. Server tests reported 16/17 passing; the existing order-search assertion failed because the mocked `where` was `{}` instead of the expected receipt-number filter. No browser validation was run.
 - **Demo seed recovery:** `server/seeds/demo.ts` was restored from the latest repository session checkpoint after a NUL-byte-corrupted file caused esbuild's `Unexpected "\x00"` parse error. The seed uses deterministic IDs, preserves existing cafe data, and skips fixtures already inserted.
 - **Expense tracking implementation:** Prisma client regeneration completed and `npm run db:migrate --prefix server` applied the additive expense migration to the local SQLite database. Expense-specific tests, type checks, lint, production build, and browser interaction were not run for this change.
 - No client automated tests were found. Automated coverage remains absent for order totals, payment transitions, idempotency replay/conflict, cashier session constraints, migration preservation, seed safety, print failure/retry, and backup restoration. The receipt print-failure flow was not manually exercised because browser print dialogs are not available in the automated browser session.
-- No performance or backup/restore exercise was run. The previous `npm audit` scan is historical and was not repeated for this update.
+- No performance benchmark or end-to-end backup/restore exercise was run. Dependency installation reported audit findings noted above; no remediation was attempted.
 
 ## Documentation status and source-of-truth cautions
 
-The consolidated audit and status document were consulted. Several prior supporting docs are absent from the current worktree. This update refreshes the README and this status document to reflect product/category management; no other documentation was changed.
+The consolidated audit and status document were consulted. This update refreshes the README and this status document to reflect product/category management and the current Windows release-preparation state; no other documentation was changed.
 
 The broader documentation was reconciled on 2026-11-01. The root README, backend plan, product specification, decisions, Copilot instructions, Cline rules, and next-step planning skill then reflected current implementation or pointed to this status document. `docs/STATE-ANALYSIS.md` is retained only as a pointer because it was not approved for deletion. `client/AGENTS.md` was absent from the current worktree; consult the installed Next.js guides under `client/node_modules/next/dist/docs/` before future client changes.
 
@@ -145,22 +152,23 @@ Continue to treat current source as authoritative for behavior. Use this documen
 
 ## Current development phase
 
-**Post-core API integration; operational hardening and completion of practical single-counter workflows.** Server-backed login, sessions, checkout, payment, order history, and summary reporting are present. The product documentation still labels some earlier work as Phase E/F in progress; it has not been reconciled. This phase assessment is a synthesis of current source and docs, not a formal release declaration.
+**Windows release validation, not release-ready.** The installer pipeline, first-run provisioning, backup/restore controls, and receipt-width options have been implemented, but packaged authentication/session behavior remains unresolved and several acceptance checks remain outstanding. This phase assessment is not a release declaration.
 
 ## Prioritized roadmap
 
 ### Phase 1 — Protect access and records before real operation
 
-1. **Implemented:** Preserve Electron browser storage while clearing only the auth cookie at startup; verify legacy receipt persistence with a real desktop restart.
-2. Bind the API to loopback by default and replace the shared seed PIN with safe local first-run credential provisioning. Add a proportionate login attempt limit/backoff.
-3. Define and rehearse a SQLite backup/restore procedure, storing backups separately from the computer.
-4. Review the destructive products migration against a copied database; establish a safe forward migration/rebaseline path without rewriting committed migration history.
-5. Add focused automated coverage for order creation/totals, payment, idempotency, sessions, and migration/seed safety.
+1. Resolve and verify packaged first-run/login cookie persistence. The current CLI smoke test sees setup success followed by `/auth/me` 401; do not assume secure-cookie handling is the cause without inspecting the actual response.
+2. Rebuild a clean installer after the dependency-copy hook and validate installation, startup, first-run setup, login, session persistence, clean exit, and restart on Windows 10/11.
+3. Exercise backup and restore end to end on isolated test data, including product photos, invalid backup rejection, pre-restore safety copy, and recovery after restoring.
+4. Test receipt output with actual 58mm and 80mm printer drivers; verify page sizing, readability, and clipping.
+5. Review the destructive products migration against copied databases and rehearse legacy-data protection/upgrade behavior without rewriting committed migration history.
+6. Add focused automated coverage for initial setup, login limiting, order creation/totals, payment, idempotency, sessions, and restore safety.
 
 ### Phase 2 — Improve daily cashier operations
 
-1. Improve parser/not-found error normalization and continue testing logout and receipt print failure/retry feedback.
-2. Reconcile README and decision/spec status with verified behavior; document supported Node runtime.
+1. Resolve the pre-existing client lint finding in Expenses and rerun the complete verification suite.
+2. Review dependency audit findings before release and record whether any updates are safely applicable.
 3. Decide whether expense correction (editing or reversal entries) is needed; expense records currently support creation and review only.
 
 ### Phase 3 — Optional, evidence-led polish
@@ -168,12 +176,11 @@ Continue to treat current source as authoritative for behavior. Use this documen
 1. Add request IDs and simple local log retention if support needs justify it.
 2. Add indexes or search optimization only after measuring representative local data.
 3. Expand client/browser tests for printing, accessibility, and repeat operations.
-4. Decide whether to make Electron a self-contained desktop installer that starts local services; do not claim packaged/offline readiness until verified.
-5. Remove unused/redundant dependencies or consolidate the class helper after checking builds and behavior.
+4. Remove unused/redundant dependencies or consolidate the class helper after checking builds and behavior.
 
 ## Recommended next task
 
-**Implement and rehearse a SQLite backup/restore workflow.** Electron now preserves browser storage and requires a PIN at each launch, but protecting the server-backed sales database against disk failure is the next critical offline-readiness task. Define a local backup location/retention policy, make a consistent SQLite backup, restore it to a test copy, and verify orders and authentication after restoration. Separately, confirm legacy browser receipt persistence through a real Electron restart.
+**Unblock and verify packaged authentication.** The product currently cannot be called ready while the packaged smoke test fails at session lookup. Inspect the response cookie and proxy/browser flow; then verify first-run setup, rejected credentials, successful login, and session persistence in the real packaged application with user-authorized browser access. Continue only after that blocking flow is demonstrably correct.
 
 ## Important decisions to preserve
 

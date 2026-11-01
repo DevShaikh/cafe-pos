@@ -15,6 +15,8 @@ coverage/
 
 # Local SQLite database (never commit real data)
 /server/data/
+/release/
+/artifacts/
 *.db
 *.db-journal
 *.db-wal

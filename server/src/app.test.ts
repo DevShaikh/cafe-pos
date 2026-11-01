@@ -205,7 +205,7 @@ test("order search filters order results, unpaid count, and total count by recei
 
   const response = await fetch(
     `${baseUrl}/api/orders?search=R-104&status=PLACED`,
-    headers: { Cookie: `pos_session=${token}` },
+    { headers: { Cookie: `pos_session=${token}` } },
   );
 
   assert.equal(response.status, 200);
@@ -213,7 +213,6 @@ test("order search filters order results, unpaid count, and total count by recei
     { receiptNumber: { contains: "R-104" }, status: "PLACED" },
   ]);
   assert.deepEqual(countFilters, [
-    { receiptNumber: { contains: "R-104" }, status: "PLACED" },
     { receiptNumber: { contains: "R-104" }, status: "PLACED" },
     { receiptNumber: { contains: "R-104" }, status: "PLACED" },
   ]);
@@ -366,7 +365,7 @@ test("product availability can be updated without changing its price", async () 
 test("category deletion is rejected while products are assigned", async () => {
   const token = mockAuthenticatedStaff();
   mockTransaction();
-  const categoryId = "category-test";
+  const categoryId = "00000000-0000-4000-8000-000000000001";
   prismaClient.category.findUnique = (async () => ({
     id: categoryId,
     name: "Tea",
@@ -387,16 +386,17 @@ test("category deletion is rejected while products are assigned", async () => {
 test("renaming a category also updates its products", async () => {
   const token = mockAuthenticatedStaff();
   mockTransaction();
+  const categoryId = "00000000-0000-4000-8000-000000000001";
   let updatedProductCategory: unknown;
   prismaClient.category.findUnique = (async () => ({
-    id: "category-test",
+    id: categoryId,
     name: "Tea",
     createdAt: new Date(),
     updatedAt: new Date(),
   })) as typeof prismaClient.category.findUnique;
   prismaClient.category.findMany = (async () => []) as typeof prismaClient.category.findMany;
   prismaClient.category.update = (async ({ data }) => ({
-    id: "category-test",
+    id: categoryId,
     name: data.name,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -406,7 +406,7 @@ test("renaming a category also updates its products", async () => {
     return { count: 2 };
   }) as typeof prismaClient.product.updateMany;
 
-  const response = await fetch(`${baseUrl}/api/categories/category-test`, {
+  const response = await fetch(`${baseUrl}/api/categories/${categoryId}`, {
     method: "PATCH",
     headers: {
       Cookie: `pos_session=${token}`,

@@ -176,16 +176,14 @@ const ProductsPage = () => {
   const productPageCount = Math.ceil(
     filteredProducts.length / PRODUCTS_PER_PAGE,
   );
-  const visibleProducts = filteredProducts.slice(
-    productPageIndex * PRODUCTS_PER_PAGE,
-    (productPageIndex + 1) * PRODUCTS_PER_PAGE,
+  const currentProductPage = Math.min(
+    productPageIndex,
+    Math.max(0, productPageCount - 1),
   );
-
-  useEffect(() => {
-    setProductPageIndex((current) =>
-      Math.min(current, Math.max(0, productPageCount - 1)),
-    );
-  }, [productPageCount]);
+  const visibleProducts = filteredProducts.slice(
+    currentProductPage * PRODUCTS_PER_PAGE,
+    (currentProductPage + 1) * PRODUCTS_PER_PAGE,
+  );
   const productCountsByCategory = useMemo(() => {
     const counts = new Map<string, number>();
     for (const product of products) {
@@ -921,9 +919,9 @@ const ProductsPage = () => {
                 filteredProducts.length > 0 && (
                   <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
                     <p className="text-sm text-muted-foreground">
-                      Showing {productPageIndex * PRODUCTS_PER_PAGE + 1}–
+                      Showing {currentProductPage * PRODUCTS_PER_PAGE + 1}–
                       {Math.min(
-                        (productPageIndex + 1) * PRODUCTS_PER_PAGE,
+                        (currentProductPage + 1) * PRODUCTS_PER_PAGE,
                         filteredProducts.length,
                       )}{" "}
                       of {filteredProducts.length}
@@ -938,13 +936,13 @@ const ProductsPage = () => {
                             Math.max(0, current - 1),
                           )
                         }
-                        disabled={productPageIndex === 0}
+                        disabled={currentProductPage === 0}
                       >
                         <ChevronLeft />
                         Previous
                       </Button>
                       <span className="min-w-16 text-center text-sm text-muted-foreground">
-                        Page {productPageIndex + 1} of {productPageCount}
+                        Page {currentProductPage + 1} of {productPageCount}
                       </span>
                       <Button
                         type="button"
@@ -955,7 +953,7 @@ const ProductsPage = () => {
                             Math.min(productPageCount - 1, current + 1),
                           )
                         }
-                        disabled={productPageIndex + 1 >= productPageCount}
+                        disabled={currentProductPage + 1 >= productPageCount}
                       >
                         Next
                         <ChevronRight />

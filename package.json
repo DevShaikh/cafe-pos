@@ -11,6 +11,8 @@
     "lint": "npm run lint --prefix client && npm run lint --prefix server",
     "typecheck": "npm run typecheck --prefix client && npm run typecheck --prefix server",
     "build": "npm run build --prefix client && npm run build --prefix server",
+    "build:desktop": "npm run build && node scripts/prepare-desktop.mjs",
+    "package:win": "npm run build:desktop && electron-builder --win nsis --x64",
     "start": "concurrently -k -n SERVER,CLIENT,DESKTOP -c magenta,cyan,yellow \"npm run start --prefix server\" \"npm run start --prefix client\" \"npm run desktop\"",
     "verify": "npm run lint && npm run typecheck && npm run test",
     "test": "npm run test --prefix server",
@@ -19,6 +21,57 @@
   "devDependencies": {
     "@types/node": "^24.19.2",
     "concurrently": "^9.2.1",
-    "electron": "^44.9.0"
+    "electron": "^44.9.0",
+    "electron-builder": "^26.18.0",
+    "node-win-x64": "^24.18.0"
+  },
+  "build": {
+    "appId": "com.devshaikh.cafe-pos",
+    "productName": "Cafe POS",
+    "afterPack": "scripts/after-pack.cjs",
+    "directories": {
+      "output": "artifacts"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "client/.next/standalone",
+        "to": "client",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "client/.next/static",
+        "to": "client/.next/static",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "client/public",
+        "to": "client/public",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "release/server",
+        "to": "server",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "node_modules/node-win-x64/bin/node.exe",
+        "to": "runtime/node.exe"
+      }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "artifactName": "Cafe-POS-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }

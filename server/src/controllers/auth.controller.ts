@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { sendSuccessResponse } from "../utils/responseHandler";
 import * as authService from "../services/auth.service";
-import { loginSchema } from "../schemas/auth";
+import { initialSetupSchema, loginSchema } from "../schemas/auth";
 import AppError from "../utils/app-error";
 import { ERROR_CODES } from "../constants/error-codes";
 
@@ -13,6 +13,51 @@ export const getActiveStaff = async (
   try {
     const staff = await authService.getActiveStaff();
     sendSuccessResponse(res, 200, staff, "Active staff retrieved successfully");
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSetupStatus = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const setupRequired = await authService.getSetupRequired();
+    sendSuccessResponse(
+      res,
+      200,
+      { setupRequired },
+      "Setup status retrieved successfully",
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const setup = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const parsed = initialSetupSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(
+        400,
+        ERROR_CODES.VALIDATION_ERROR,
+        parsed.error.issues[0]?.message ?? "Invalid input",
+      );
+    }
+    const { token, staff } = await authService.setupInitialAdmin(parsed.data);
+    res.cookie("pos_session", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 12 * 60 * 60 * 1000,
+    });
+    sendSuccessResponse(res, 201, staff, "Initial setup completed");
   } catch (error) {
     next(error);
   }

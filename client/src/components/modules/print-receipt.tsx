@@ -1,20 +1,27 @@
 import { forwardRef } from "react";
 import { Receipt } from "@/types";
 import { formatPaisa } from "@/lib/utils";
+import type { ReceiptPaperWidth } from "@/lib/receipt-paper-width";
 
 interface PrintReceiptProps {
   receipt: Receipt;
+  paperWidthMm: ReceiptPaperWidth;
 }
 
 const PrintReceipt = forwardRef<HTMLDivElement, PrintReceiptProps>(
-  ({ receipt }, ref) => {
+  ({ receipt, paperWidthMm }, ref) => {
     const date = new Date(receipt.createdAt).toLocaleString("en-PK", {
       dateStyle: "short",
       timeStyle: "short",
     });
 
     return (
-      <div ref={ref} className="w-[80mm] bg-white p-4 font-mono text-black">
+      <div
+        ref={ref}
+        className={`bg-white font-mono text-black ${
+          paperWidthMm === 58 ? "w-[58mm] px-2 py-3" : "w-[80mm] p-4"
+        }`}
+      >
         <div className="text-center">
           <h1 className="text-lg font-bold uppercase">Cafe POS</h1>
           <p className="text-xs">Counter Workspace</p>

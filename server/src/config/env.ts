@@ -12,7 +12,7 @@ const environmentSchema = z.object({
     .default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000), // Optional: defaults to a SQLite file at server/data/cafe-pos.db
   DATABASE_URL: z.string().optional(),
-  CLIENT_ORIGIN: z.url().default("http://localhost:3001"),
+  CLIENT_ORIGIN: z.url().default("http://127.0.0.1:3001"),
   JWT_SECRET: z.string().min(32).optional(),
 }).superRefine((environment, context) => {
   if (environment.NODE_ENV === "production" && !environment.JWT_SECRET) {

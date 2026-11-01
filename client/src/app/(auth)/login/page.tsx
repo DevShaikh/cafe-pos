@@ -9,7 +9,12 @@ import { z } from "zod";
 import { LoaderCircle, LogIn } from "lucide-react";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { authKeys, useCurrentStaff } from "@/lib/hooks/auth.hooks";
-import { getActiveStaff, login } from "@/lib/services/auth.service";
+import {
+  getActiveStaff,
+  getSetupStatus,
+  login,
+  setupInitialAdmin,
+} from "@/lib/services/auth.service";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +25,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import {
   InputOTP,
   InputOTPGroup,
@@ -37,6 +43,20 @@ const loginFormSchema = z.object({
   staffId: z.uuid("Select an active staff member."),
   pin: z.string().regex(/^\d{4}$/, "Enter your 4-digit PIN."),
 });
+const initialSetupFormSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(2, "Enter a name with at least 2 characters.")
+      .max(80),
+    pin: z.string().regex(/^\d{4}$/, "Choose a 4-digit PIN."),
+    pinConfirmation: z.string().regex(/^\d{4}$/, "Confirm the 4-digit PIN."),
+  })
+  .refine((value) => value.pin === value.pinConfirmation, {
+    path: ["pinConfirmation"],
+    message: "PINs do not match.",
+  });
 
 const LoginPage = () => {
   const router = useRouter();
@@ -44,6 +64,10 @@ const LoginPage = () => {
   const session = useCurrentStaff();
   const [preferredStaffId, setPreferredStaffId] = useState("");
   const [pin, setPin] = useState("");
+  const [setupName, setSetupName] = useState("");
+  const [setupPin, setSetupPin] = useState("");
+  const [setupPinConfirmation, setSetupPinConfirmation] = useState("");
+  const [setupError, setSetupError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{
     staffId?: string;
     pin?: string;
@@ -57,6 +81,14 @@ const LoginPage = () => {
       return response.data.data;
     },
   });
+  const setupQuery = useQuery({
+    queryKey: ["auth", "setup-status"],
+    queryFn: async ({ signal }) => {
+      const response = await getSetupStatus(signal);
+      return response.data.data;
+    },
+    retry: false,
+  });
 
   const staffId =
     staffQuery.data?.find(({ id }) => id === preferredStaffId)?.id ??
@@ -64,13 +96,15 @@ const LoginPage = () => {
     "";
   const canSubmit = Boolean(staffId) && /^\d{4}$/.test(pin);
 
+  const finishSignIn = async () => {
+    setErrorMessage("");
+    await queryClient.invalidateQueries({ queryKey: authKeys.session });
+    router.replace("/catalog");
+  };
+
   const loginMutation = useMutation({
     mutationFn: login,
-    onSuccess: async () => {
-      setErrorMessage("");
-      await queryClient.invalidateQueries({ queryKey: authKeys.session });
-      router.replace("/catalog");
-    },
+    onSuccess: finishSignIn,
     onError: (error) => {
       if (axios.isAxiosError(error)) {
         setErrorMessage(
@@ -79,6 +113,20 @@ const LoginPage = () => {
         return;
       }
       setErrorMessage("Unable to sign in. Please try again.");
+    },
+  });
+  const setupMutation = useMutation({
+    mutationFn: setupInitialAdmin,
+    onSuccess: finishSignIn,
+    onError: (error) => {
+      if (axios.isAxiosError(error)) {
+        setSetupError(
+          error.response?.data?.error?.message ??
+            "Could not complete the initial setup.",
+        );
+        return;
+      }
+      setSetupError("Could not complete the initial setup. Please try again.");
     },
   });
 
@@ -105,6 +153,26 @@ const LoginPage = () => {
     setFieldErrors({});
     setErrorMessage("");
     loginMutation.mutate(parsed.data);
+  };
+
+  const handleSetupSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSetupError("");
+    const parsed = initialSetupFormSchema.safeParse({
+      name: setupName,
+      pin: setupPin,
+      pinConfirmation: setupPinConfirmation,
+    });
+    if (!parsed.success) {
+      setSetupError(
+        parsed.error.issues[0]?.message ?? "Check the setup details.",
+      );
+      return;
+    }
+    setupMutation.mutate({
+      name: parsed.data.name,
+      pin: parsed.data.pin,
+    });
   };
 
   return (
@@ -135,7 +203,132 @@ const LoginPage = () => {
             </p>
           </div>
 
-          {staffQuery.isLoading ? (
+          {setupQuery.isPending ? (
+            <div className="flex justify-center py-8" role="status">
+              <LoaderCircle className="size-6 animate-spin text-primary" />
+            </div>
+          ) : setupQuery.isError ? (
+            <p
+              className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive"
+              role="alert"
+            >
+              Could not check the initial setup status. Check that the API is
+              running.
+            </p>
+          ) : setupQuery.data.setupRequired ? (
+            <form
+              className="space-y-5"
+              onSubmit={handleSetupSubmit}
+              aria-busy={setupMutation.isPending}
+              noValidate
+            >
+              <div className="space-y-1">
+                <Badge variant="secondary">First-time setup</Badge>
+                <p className="text-sm text-muted-foreground">
+                  Create the administrator account for this cafe. Choose a PIN
+                  that is not shared or used elsewhere.
+                </p>
+              </div>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="setup-name">Administrator name</FieldLabel>
+                  <Input
+                    id="setup-name"
+                    autoComplete="name"
+                    maxLength={80}
+                    value={setupName}
+                    disabled={setupMutation.isPending}
+                    onChange={(event) => setSetupName(event.target.value)}
+                    required
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="setup-pin">Choose a 4-digit PIN</FieldLabel>
+                  <InputOTP
+                    id="setup-pin"
+                    maxLength={4}
+                    pattern={REGEXP_ONLY_DIGITS}
+                    inputMode="numeric"
+                    autoComplete="new-password"
+                    value={setupPin}
+                    disabled={setupMutation.isPending}
+                    onChange={setSetupPin}
+                    aria-label="Choose a 4-digit administrator PIN"
+                    containerClassName="w-full justify-center"
+                  >
+                    <InputOTPGroup
+                      aria-hidden="true"
+                      className="gap-3 rounded-none"
+                    >
+                      {Array.from({ length: 4 }, (_, index) => (
+                        <InputOTPSlot
+                          key={index}
+                          index={index}
+                          mask
+                          className="size-12 rounded-xl border first:border-l bg-background text-xl font-semibold"
+                        />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="setup-pin-confirm">
+                    Confirm PIN
+                  </FieldLabel>
+                  <InputOTP
+                    id="setup-pin-confirm"
+                    maxLength={4}
+                    pattern={REGEXP_ONLY_DIGITS}
+                    inputMode="numeric"
+                    autoComplete="new-password"
+                    value={setupPinConfirmation}
+                    disabled={setupMutation.isPending}
+                    onChange={setSetupPinConfirmation}
+                    aria-label="Confirm administrator PIN"
+                    containerClassName="w-full justify-center"
+                  >
+                    <InputOTPGroup
+                      aria-hidden="true"
+                      className="gap-3 rounded-none"
+                    >
+                      {Array.from({ length: 4 }, (_, index) => (
+                        <InputOTPSlot
+                          key={index}
+                          index={index}
+                          mask
+                          className="size-12 rounded-xl border first:border-l bg-background text-xl font-semibold"
+                        />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                </Field>
+              </FieldGroup>
+              {setupError && (
+                <p className="text-sm text-destructive" role="alert">
+                  {setupError}
+                </p>
+              )}
+              <Button
+                type="submit"
+                className="h-12 w-full rounded-xl font-semibold"
+                disabled={
+                  setupMutation.isPending ||
+                  setupName.trim().length < 2 ||
+                  !/^\d{4}$/.test(setupPin) ||
+                  !/^\d{4}$/.test(setupPinConfirmation)
+                }
+              >
+                {setupMutation.isPending ? (
+                  <LoaderCircle className="size-4 animate-spin" />
+                ) : (
+                  <LogIn className="size-4" />
+                )}
+                {setupMutation.isPending
+                  ? "Setting up cafe…"
+                  : "Create administrator and continue"}
+              </Button>
+            </form>
+          ) : staffQuery.isLoading ? (
             <div className="flex justify-center py-8" role="status">
               <LoaderCircle className="size-6 animate-spin text-primary" />
             </div>
@@ -150,7 +343,8 @@ const LoginPage = () => {
             <div className="space-y-3">
               <Badge variant="secondary">No active staff</Badge>
               <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-                No active staff accounts are set up yet.
+                No active staff accounts are available. Ask an administrator to
+                reactivate a staff account.
               </p>
             </div>
           ) : (

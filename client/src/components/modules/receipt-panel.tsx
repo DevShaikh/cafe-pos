@@ -24,6 +24,7 @@ import { Card } from "@/components/ui/card";
 import { useCreateOrder } from "@/lib/hooks/order.hooks";
 import { useCurrentSession } from "@/lib/hooks/session.hooks";
 import { useTaxSettings } from "@/lib/hooks/settings.hooks";
+import { useReceiptPaperWidth } from "@/lib/receipt-paper-width";
 import { toReceipt } from "@/lib/services/order.service";
 import PrintReceipt from "./print-receipt";
 import { Receipt as ReceiptType, OrderType } from "@/types";
@@ -62,6 +63,7 @@ const ReceiptPanel = () => {
   const createOrderMutation = useCreateOrder();
   const currentSessionQuery = useCurrentSession();
   const taxSettingsQuery = useTaxSettings();
+  const paperWidthMm = useReceiptPaperWidth();
 
   const [orderType, setOrderType] = useState<OrderType>("DINE_IN");
   const [receiptToPrint, setReceiptToPrint] = useState<ReceiptType | null>(
@@ -93,6 +95,7 @@ const ReceiptPanel = () => {
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Receipt-${receiptToPrint?.receiptNumber || "New"}`,
+    pageStyle: `@page { size: ${paperWidthMm}mm auto; margin: 0; }`,
     onAfterPrint: finishPrint,
     onPrintError: failPrint,
   });
@@ -434,7 +437,11 @@ const ReceiptPanel = () => {
 
       {receiptToPrint && (
         <div className="hidden">
-          <PrintReceipt ref={printRef} receipt={receiptToPrint} />
+          <PrintReceipt
+            ref={printRef}
+            receipt={receiptToPrint}
+            paperWidthMm={paperWidthMm}
+          />
         </div>
       )}
     </Card>

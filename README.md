@@ -2,7 +2,7 @@
 
 A locally running cafe point-of-sale app for the counter. Built as a learning and portfolio project.
 
-**Status:** Staff login, cashier sessions, server-backed checkout and payments, order history, summary reports, authenticated product/category management, and expense tracking are implemented. Historical receipts may still exist only in browser storage. Settings are a placeholder. See [`project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md`](project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md) for current progress and priorities; verify behavior against source before changing it.
+**Status:** The application includes staff PIN login, cashier sessions, server-backed checkout/payments, order history, reports, product/category management, expense tracking, tax settings, and a Windows desktop packaging path. The current installer is **not release-ready**: a packaged first-run setup smoke test succeeded, but the next authenticated session check returned 401, and browser-based verification has not been authorized. Backup restoration and physical receipt-printer output also remain unverified. See [`project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md`](project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md) for current progress and priorities.
 
 ---
 
@@ -17,6 +17,7 @@ The cashier uses the system to:
 5. Record payment for a server-backed order after the cashier confirms cash or another manual payment method.
 6. Review paginated orders and summary sales reports.
 7. Record cafe purchases and calculate total expenses for selected dates and categories.
+8. Configure tax and select 58mm or 80mm receipt paper; create or restore a manual local backup from Settings.
 
 Payment is manual; the app records the cashier's confirmation and selected method. Editing, voiding, refunds, and cash reconciliation are not implemented. Legacy device-saved receipts remain separate from server orders.
 
@@ -32,10 +33,10 @@ Current architecture, implemented flows, gaps, and backend plan: [`docs/backend-
 | -------------------- | ------------------------------------------------------------------------- |
 | **Client**           | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, shadcn/ui |
 | **State Management** | Zustand (cart and legacy local receipts), TanStack Query (server data)      |
-| **Printing**         | `react-to-print` (80mm thermal receipt template)                          |
+| **Printing**         | `react-to-print` (configurable 58mm/80mm receipt template)                |
 | **Server**           | Node.js, Express, TypeScript, Zod                                         |
 | **Database**         | SQLite (single local file) with Prisma 7                                  |
-| **Desktop**          | Electron (loads the Next.js client)                                       |
+| **Desktop**          | Electron (starts the packaged local Next.js client and Express API)       |
 
 ---
 
@@ -123,8 +124,15 @@ docs/
 - Expense tracking is available at `/expenses`: authenticated staff can save purchases in SQLite with a category, amount, date/time, and optional note; filtered totals are calculated across all matching records.
 - Expense records are currently append-only; correcting or removing a saved entry is not yet supported.
 - Settings management, stock/inventory tracking, order editing/voiding/refunds, and cash reconciliation are not implemented.
-- Electron preserves browser storage and clears only the previous login cookie on startup, so staff must enter a PIN after each app launch. Legacy local receipts should remain stored; survival across a real desktop restart is not yet verified. Electron is not yet a self-contained offline installer.
-- A known `1234` administrator PIN is created by the seed when no admin exists. Do not treat the seeded account as production-ready.
-- Backups, restoration, and critical checkout/payment behavior have not been operationally tested.
+- Electron now has a Windows NSIS packaging path, bundles a Node runtime, starts the local services, uses a per-install JWT secret, and provisions the first administrator through the app instead of a default seeded PIN. The package has not passed the full login/session smoke test, so do not treat it as ready to install for a cafe.
+- Settings provides local database-and-product-photo backup/restore controls. Backup creation was smoke-tested, but end-to-end restore and recovery have not been verified.
+- The packaged setup API returned success during a smoke test, but the subsequent authenticated `/auth/me` request returned 401 in a PowerShell cookie-session test. Chromium/Electron cookie behavior has not been verified; browser testing was declined.
+- 58mm/80mm receipt sizing is configurable, but output has not been tested with physical printer drivers.
+- The Windows installer currently builds unsigned and uses Electron's default icon. Installation, upgrade, and real desktop restart behavior still need acceptance testing.
+- The whole client lint command still reports the pre-existing `react-hooks/set-state-in-effect` issue on the Expenses page; targeted changed-file lint passed.
 
 See the [project status and technical roadmap](project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md) for prioritized next work and verification status. See [`docs/backend-plan.md`](docs/backend-plan.md) for the API map and implementation details.
+
+### Windows packaging
+
+The current packaging command is `npm run package:win`; it builds a Windows x64 NSIS installer under `artifacts/`. It requires the development/build dependencies but the intended installed application bundles its Node runtime and local services. This packaging path is still under validation and the generated installer is unsigned; do not distribute it as a production release until the authentication/session smoke test and backup/restore acceptance checks pass.

@@ -5,8 +5,8 @@ import { ERROR_CODES } from "../constants/error-codes";
 import AppError from "../utils/app-error";
 
 export const PRODUCT_IMAGE_DIRECTORY = path.resolve(
-  __dirname,
-  "../../data/product-images",
+  process.env.PRODUCT_IMAGE_DIRECTORY ??
+    path.resolve(__dirname, "../../data/product-images"),
 );
 
 const imageUrlPattern =
@@ -70,6 +70,7 @@ export function getProductImagePath(filename: string): string | null {
 
 export async function removeProductImage(imageUrl: string | null) {
   const match = imageUrl?.match(imageUrlPattern);
-  if (!match) return;
-  await rm(path.join(PRODUCT_IMAGE_DIRECTORY, match[1]), { force: true });
+  const filename = match?.[1];
+  if (!filename) return;
+  await rm(path.join(PRODUCT_IMAGE_DIRECTORY, filename), { force: true });
 }
