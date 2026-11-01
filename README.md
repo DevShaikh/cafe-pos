@@ -2,7 +2,7 @@
 
 A locally running cafe point-of-sale app for the counter. Built as a learning and portfolio project.
 
-**Status:** The application includes staff PIN login, cashier sessions, server-backed checkout/payments, order history, reports, product/category management, expense tracking, tax settings, and a Windows desktop packaging path. The current installer is **not release-ready**: a packaged first-run setup smoke test succeeded, but the next authenticated session check returned 401, and browser-based verification has not been authorized. Backup restoration and physical receipt-printer output also remain unverified. See [`project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md`](project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md) for current progress and priorities.
+**Status:** The application includes staff PIN login, cashier sessions, server-backed checkout/payments, order history, reports, product/category management, expense tracking, tax settings, and a Windows desktop packaging path. An isolated Chromium smoke test against the packaged local services verified first-run setup, invalid-PIN rejection, successful login, and session persistence after refresh. A PowerShell cookie-session test returned 401, but that failure was not reproduced in Chromium; no cookie-security setting was weakened. The installer is **not release-ready** until backup restoration, physical receipt-printer output, and Windows installation/upgrade acceptance are verified. See [`project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md`](project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md) for current progress and priorities.
 
 ---
 
@@ -126,7 +126,7 @@ docs/
 - Settings management, stock/inventory tracking, order editing/voiding/refunds, and cash reconciliation are not implemented.
 - Electron now has a Windows NSIS packaging path, bundles a Node runtime, starts the local services, uses a per-install JWT secret, and provisions the first administrator through the app instead of a default seeded PIN. The package has not passed the full login/session smoke test, so do not treat it as ready to install for a cafe.
 - Settings provides local database-and-product-photo backup/restore controls. Backup creation was smoke-tested, but end-to-end restore and recovery have not been verified.
-- The packaged setup API returned success during a smoke test, but the subsequent authenticated `/auth/me` request returned 401 in a PowerShell cookie-session test. Chromium/Electron cookie behavior has not been verified; browser testing was declined.
+- PowerShell did not retain the production `Secure` loopback cookie in its web-session test, so its follow-up `/auth/me` request returned 401. This was not reproduced in Chromium: the packaged first-run/login flow completed and remained authenticated after refresh. No authentication code or cookie-security behavior was changed for the PowerShell-only result.
 - 58mm/80mm receipt sizing is configurable, but output has not been tested with physical printer drivers.
 - The Windows installer currently builds unsigned and uses Electron's default icon. Installation, upgrade, and real desktop restart behavior still need acceptance testing.
 - The whole client lint command still reports the pre-existing `react-hooks/set-state-in-effect` issue on the Expenses page; targeted changed-file lint passed.
