@@ -13,6 +13,7 @@ import authRoutes from "./auth.routes";
 import orderRoutes from "./order.routes";
 import reportsRoutes from "./reports.routes";
 import sessionRoutes from "./session.routes";
+import categoryRoutes from "./category.routes";
 
 const router = Router();
 
@@ -30,6 +31,7 @@ router.get("/", (_req, res) => {
 router.use("/auth", authRoutes); // Mount auth routes at /auth
 router.use("/health", healthRoutes); // Mount health routes at /health
 router.use("/products", productRoutes); // Mount product routes at /products
+router.use("/categories", categoryRoutes);
 router.use("/orders", orderRoutes); // Mount order routes at /orders
 router.use("/reports", reportsRoutes); // Mount report routes at /reports
 router.use("/sessions", sessionRoutes); // Mount register-session routes at /sessions

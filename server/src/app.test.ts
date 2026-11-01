@@ -24,6 +24,17 @@ let prismaClient: typeof import("./lib/prismaClient").prismaClient;
 let originalQueryRaw: typeof prismaClient.$queryRaw;
 let originalStaffFindUnique: typeof prismaClient.staff.findUnique;
 let originalProductFindMany: typeof prismaClient.product.findMany;
+let originalProductFindUnique: typeof prismaClient.product.findUnique;
+let originalProductCreate: typeof prismaClient.product.create;
+let originalProductUpdate: typeof prismaClient.product.update;
+let originalProductUpdateMany: typeof prismaClient.product.updateMany;
+let originalProductCount: typeof prismaClient.product.count;
+let originalCategoryFindMany: typeof prismaClient.category.findMany;
+let originalCategoryFindUnique: typeof prismaClient.category.findUnique;
+let originalCategoryCreate: typeof prismaClient.category.create;
+let originalCategoryUpdate: typeof prismaClient.category.update;
+let originalCategoryDelete: typeof prismaClient.category.delete;
+let originalTransaction: typeof prismaClient.$transaction;
 
 before(async () => {
   // Must be set BEFORE the app is imported: config/env.ts reads these on import.
@@ -41,6 +52,17 @@ before(async () => {
   originalQueryRaw = prismaClient.$queryRaw;
   originalStaffFindUnique = prismaClient.staff.findUnique;
   originalProductFindMany = prismaClient.product.findMany;
+  originalProductFindUnique = prismaClient.product.findUnique;
+  originalProductCreate = prismaClient.product.create;
+  originalProductUpdate = prismaClient.product.update;
+  originalProductUpdateMany = prismaClient.product.updateMany;
+  originalProductCount = prismaClient.product.count;
+  originalCategoryFindMany = prismaClient.category.findMany;
+  originalCategoryFindUnique = prismaClient.category.findUnique;
+  originalCategoryCreate = prismaClient.category.create;
+  originalCategoryUpdate = prismaClient.category.update;
+  originalCategoryDelete = prismaClient.category.delete;
+  originalTransaction = prismaClient.$transaction;
 
   server = app.listen(0);
   await once(server, "listening");
@@ -58,6 +80,17 @@ afterEach(() => {
   prismaClient.$queryRaw = originalQueryRaw;
   prismaClient.staff.findUnique = originalStaffFindUnique;
   prismaClient.product.findMany = originalProductFindMany;
+  prismaClient.product.findUnique = originalProductFindUnique;
+  prismaClient.product.create = originalProductCreate;
+  prismaClient.product.update = originalProductUpdate;
+  prismaClient.product.updateMany = originalProductUpdateMany;
+  prismaClient.product.count = originalProductCount;
+  prismaClient.category.findMany = originalCategoryFindMany;
+  prismaClient.category.findUnique = originalCategoryFindUnique;
+  prismaClient.category.create = originalCategoryCreate;
+  prismaClient.category.update = originalCategoryUpdate;
+  prismaClient.category.delete = originalCategoryDelete;
+  prismaClient.$transaction = originalTransaction;
 });
 
 // Prisma's client is a Proxy, which node:test's mock.method cannot wrap, so
@@ -88,6 +121,12 @@ function mockAuthenticatedStaff() {
     active: true,
   })) as unknown as typeof prismaClient.staff.findUnique;
   return jwt.sign({ id: "test-staff" }, TEST_JWT_SECRET);
+}
+
+function mockTransaction() {
+  prismaClient.$transaction = ((
+    operation: (transaction: typeof prismaClient) => Promise<unknown>,
+  ) => operation(prismaClient)) as unknown as typeof prismaClient.$transaction;
 }
 
 test("GET /api/health returns 200 when the database is reachable", async () => {
@@ -131,6 +170,176 @@ test("product list filters unavailable products unless explicitly included", asy
   }
 
   assert.deepEqual(whereValues, [{ isAvailable: true }, {}]);
+});
+
+test("category management requires an authenticated cashier", async () => {
+  const response = await fetch(`${baseUrl}/api/categories`);
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).error.code, "UNAUTHORIZED");
+});
+
+test("category creation trims and persists a validated name", async () => {
+  const token = mockAuthenticatedStaff();
+  prismaClient.category.findMany = (async () => []) as typeof prismaClient.category.findMany;
+  prismaClient.category.create = (async ({ data }) => ({
+    id: "category-test",
+    name: data.name,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  })) as typeof prismaClient.category.create;
+
+  const response = await fetch(`${baseUrl}/api/categories`, {
+    method: "POST",
+    headers: {
+      Cookie: `pos_session=${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name: "  Cold Drinks  " }),
+  });
+
+  assert.equal(response.status, 201);
+  assert.equal((await response.json()).data.name, "Cold Drinks");
+});
+
+test("product creation preserves integer paisa and uses the canonical category", async () => {
+  const token = mockAuthenticatedStaff();
+  mockTransaction();
+  let createdProduct: { pricePaisa: number; category: string } | undefined;
+  prismaClient.category.findMany = (async () => [{ name: "Tea" }]) as typeof prismaClient.category.findMany;
+  prismaClient.product.create = (async (args: {
+    data: {
+      name: string;
+      pricePaisa: number;
+      category: string;
+      description?: string | null;
+      imageUrl?: string | null;
+    };
+  }) => {
+    createdProduct = args.data;
+    return {
+      id: "00000000-0000-4000-8000-000000000001",
+      ...args.data,
+      isAvailable: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }) as unknown as typeof prismaClient.product.create;
+
+  const response = await fetch(`${baseUrl}/api/products`, {
+    method: "POST",
+    headers: {
+      Cookie: `pos_session=${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: "Karak Chai",
+      pricePaisa: 12550,
+      category: "tea",
+    }),
+  });
+
+  assert.equal(response.status, 201);
+  assert.equal(createdProduct?.pricePaisa, 12550);
+  assert.equal(createdProduct?.category, "Tea");
+});
+
+test("product availability can be updated without changing its price", async () => {
+  const token = mockAuthenticatedStaff();
+  mockTransaction();
+  const productId = "00000000-0000-4000-8000-000000000001";
+  prismaClient.product.findUnique = (async () => ({
+    id: productId,
+    name: "Chai",
+    description: null,
+    pricePaisa: 10000,
+    category: "Tea",
+    imageUrl: null,
+    isAvailable: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  })) as unknown as typeof prismaClient.product.findUnique;
+  prismaClient.product.update = (async ({ data }) => ({
+    id: productId,
+    name: "Chai",
+    description: null,
+    pricePaisa: 10000,
+    category: "Tea",
+    imageUrl: null,
+    isAvailable: data.isAvailable,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  })) as typeof prismaClient.product.update;
+
+  const response = await fetch(`${baseUrl}/api/products/${productId}`, {
+    method: "PATCH",
+    headers: {
+      Cookie: `pos_session=${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ isAvailable: false }),
+  });
+
+  assert.equal(response.status, 200);
+  const product = (await response.json()).data;
+  assert.equal(product.isAvailable, false);
+  assert.equal(product.pricePaisa, 10000);
+});
+
+test("category deletion is rejected while products are assigned", async () => {
+  const token = mockAuthenticatedStaff();
+  mockTransaction();
+  const categoryId = "category-test";
+  prismaClient.category.findUnique = (async () => ({
+    id: categoryId,
+    name: "Tea",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  })) as typeof prismaClient.category.findUnique;
+  prismaClient.product.count = (async () => 1) as typeof prismaClient.product.count;
+
+  const response = await fetch(`${baseUrl}/api/categories/${categoryId}`, {
+    method: "DELETE",
+    headers: { Cookie: `pos_session=${token}` },
+  });
+
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).error.code, "CATEGORY_IN_USE");
+});
+
+test("renaming a category also updates its products", async () => {
+  const token = mockAuthenticatedStaff();
+  mockTransaction();
+  let updatedProductCategory: unknown;
+  prismaClient.category.findUnique = (async () => ({
+    id: "category-test",
+    name: "Tea",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  })) as typeof prismaClient.category.findUnique;
+  prismaClient.category.findMany = (async () => []) as typeof prismaClient.category.findMany;
+  prismaClient.category.update = (async ({ data }) => ({
+    id: "category-test",
+    name: data.name,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  })) as typeof prismaClient.category.update;
+  prismaClient.product.updateMany = (async ({ data }) => {
+    updatedProductCategory = data.category;
+    return { count: 2 };
+  }) as typeof prismaClient.product.updateMany;
+
+  const response = await fetch(`${baseUrl}/api/categories/category-test`, {
+    method: "PATCH",
+    headers: {
+      Cookie: `pos_session=${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name: "Hot Drinks" }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(updatedProductCategory, "Hot Drinks");
+  assert.equal((await response.json()).data.name, "Hot Drinks");
 });
 
 test("GET /api/health returns a JSON error when the database is down", async () => {
