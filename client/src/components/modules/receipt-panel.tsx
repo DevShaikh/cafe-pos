@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
   Receipt,
@@ -13,6 +13,8 @@ import {
 import { useReactToPrint } from "react-to-print";
 import { useCartStore, useCartActions } from "@/store/cart.store";
 import { formatPaisa, cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { useCreateOrder } from "@/lib/hooks/order.hooks";
 import { useCurrentSession } from "@/lib/hooks/session.hooks";
 import { toReceipt } from "@/lib/services/order.service";
@@ -58,6 +60,7 @@ const ReceiptPanel = () => {
     null,
   );
   const [isPrinting, setIsPrinting] = useState(false);
+  const [printError, setPrintError] = useState("");
   const [pendingInput, setPendingInput] = useState<{
     orderType: OrderType;
     items: { productId: string; quantity: number }[];
@@ -66,17 +69,24 @@ const ReceiptPanel = () => {
 
   const printRef = useRef<HTMLDivElement>(null);
 
+  const finishPrint = useCallback(() => {
+    setIsPrinting(false);
+    setReceiptToPrint(null);
+    setPrintError("");
+  }, []);
+
+  const failPrint = useCallback(() => {
+    setIsPrinting(false);
+    setPrintError(
+      "The order was saved, but the receipt could not be printed. Try printing it again.",
+    );
+  }, []);
+
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Receipt-${receiptToPrint?.receiptNumber || "New"}`,
-    onAfterPrint: () => {
-      setIsPrinting(false);
-      setReceiptToPrint(null);
-    },
-    onPrintError: () => {
-      setIsPrinting(false);
-      setReceiptToPrint(null);
-    },
+    onAfterPrint: finishPrint,
+    onPrintError: failPrint,
   });
 
   useEffect(() => {
@@ -103,6 +113,7 @@ const ReceiptPanel = () => {
     ) return;
 
     setIsPrinting(true);
+    setPrintError("");
     try {
       const input = pendingInput ?? {
         orderType,
@@ -137,6 +148,13 @@ const ReceiptPanel = () => {
     }
   };
 
+  const retryPrint = () => {
+    if (!receiptToPrint) return;
+    setPrintError("");
+    setIsPrinting(true);
+    handlePrint();
+  };
+
   const checkoutError = createOrderMutation.error
     ? pendingInput
       ? "The server may have received this order. Retry without changing the cart to safely confirm it."
@@ -149,7 +167,7 @@ const ReceiptPanel = () => {
       : null;
 
   return (
-    <div className="flex h-full w-100 shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+    <Card className="flex h-full w-100 shrink-0 flex-col overflow-hidden rounded-2xl p-0 shadow-sm">
       <div className="border-b border-border p-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
@@ -161,30 +179,32 @@ const ReceiptPanel = () => {
         </div>
 
         <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
-          <button
+          <Button
+            type="button"
             onClick={() => setOrderType("DINE_IN")}
             disabled={isPrinting || !!pendingInput}
+            aria-pressed={orderType === "DINE_IN"}
+            variant={orderType === "DINE_IN" ? "secondary" : "ghost"}
             className={cn(
-              "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all disabled:opacity-50",
-              orderType === "DINE_IN"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
+              "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all",
+              orderType === "DINE_IN" && "bg-background shadow-sm",
             )}
           >
             Dine in
-          </button>
-          <button
+          </Button>
+          <Button
+            type="button"
             onClick={() => setOrderType("TAKEAWAY")}
             disabled={isPrinting || !!pendingInput}
+            aria-pressed={orderType === "TAKEAWAY"}
+            variant={orderType === "TAKEAWAY" ? "secondary" : "ghost"}
             className={cn(
-              "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all disabled:opacity-50",
-              orderType === "TAKEAWAY"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
+              "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all",
+              orderType === "TAKEAWAY" && "bg-background shadow-sm",
             )}
           >
             Takeaway
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -228,37 +248,49 @@ const ReceiptPanel = () => {
                     </div>
                     <div className="mt-2 flex items-center justify-between">
                       <div className="flex items-center gap-1 rounded-lg border border-border p-1">
-                        <button
+                        <Button
+                          type="button"
                           onClick={() => {
                             if (pendingInput) return;
                             if (item.quantity === 1) removeItem(item.id);
                             else updateQuantity(item.id, item.quantity - 1);
                           }}
                           disabled={!!pendingInput}
-                          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Decrease ${item.name} quantity`}
+                          className="rounded-md"
                         >
                           <Minus size={14} />
-                        </button>
+                        </Button>
                         <span className="w-6 text-center text-sm font-semibold text-foreground">
                           {item.quantity}
                         </span>
-                        <button
+                        <Button
+                          type="button"
                           onClick={() =>
                             updateQuantity(item.id, item.quantity + 1)
                           }
                           disabled={!!pendingInput}
-                          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Increase ${item.name} quantity`}
+                          className="rounded-md"
                         >
                           <Plus size={14} />
-                        </button>
+                        </Button>
                       </div>
-                      <button
+                      <Button
+                        type="button"
                         onClick={() => removeItem(item.id)}
                         disabled={!!pendingInput}
-                        className="text-muted-foreground transition-colors hover:text-destructive"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Remove ${item.name} from receipt`}
+                        className="text-muted-foreground hover:text-destructive"
                       >
                         <Trash2 size={16} />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -284,14 +316,16 @@ const ReceiptPanel = () => {
           </div>
         </div>
 
-        <button
+        <Button
+          type="button"
           onClick={handleGenerateReceipt}
           disabled={
             (cartArray.length === 0 && !pendingInput) ||
             isPrinting ||
             !currentSessionQuery.data
           }
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-4 text-base font-semibold text-primary-foreground shadow-sm transition-transform active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+          size="lg"
+          className="h-auto w-full rounded-xl px-4 py-4 text-base shadow-sm transition-transform active:scale-[0.98]"
         >
           {isPrinting ? (
             <>
@@ -304,11 +338,28 @@ const ReceiptPanel = () => {
               {pendingInput ? "Retry order" : "Generate & Print receipt"}
             </>
           )}
-        </button>
+        </Button>
         {checkoutError && (
           <p role="alert" className="mt-3 text-sm text-destructive">
             {checkoutError}
           </p>
+        )}
+        {printError && (
+          <div
+            role="alert"
+            className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-destructive"
+          >
+            <p>{printError}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isPrinting}
+              onClick={retryPrint}
+            >
+              Retry print
+            </Button>
+          </div>
         )}
         {sessionMessage && (
           <p className="mt-3 text-sm text-muted-foreground">{sessionMessage}</p>
@@ -320,7 +371,7 @@ const ReceiptPanel = () => {
           <PrintReceipt ref={printRef} receipt={receiptToPrint} />
         </div>
       )}
-    </div>
+    </Card>
   );
 };
 
