@@ -50,6 +50,7 @@ const CatalogPage = () => {
             <Input
               type="search"
               aria-label="Search menu"
+              maxLength={100}
               placeholder="Search menu..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}

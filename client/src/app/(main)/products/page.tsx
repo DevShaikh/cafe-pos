@@ -65,9 +65,17 @@ const productFormSchema = z.object({
   price: z
     .string()
     .max(11, "The price exceeds the supported maximum.")
-    .regex(/^\d+(?:\.\d{1,2})?$/, "Enter a price with up to 2 decimal places."),
+    .regex(
+      /^\d{1,8}(?:\.\d{1,2})?$/,
+      "Enter a price with up to 2 decimal places.",
+    ),
   category: z.string().min(1, "Choose a category."),
 });
+const categoryNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Enter a category name.")
+  .max(60, "Category names must be 60 characters or fewer.");
 
 const EMPTY_PRODUCTS: Product[] = [];
 const MAX_PRODUCT_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -274,10 +282,16 @@ const ProductsPage = () => {
     event.preventDefault();
     setCategoryError("");
     setNotice("");
-    try {
-      const created = await createCategoryMutation.mutateAsync(
-        newCategoryName.trim(),
+    const parsedName = categoryNameSchema.safeParse(newCategoryName);
+    if (!parsedName.success) {
+      setCategoryError(
+        parsedName.error.issues[0]?.message ?? "Check the category name.",
       );
+      return;
+    }
+
+    try {
+      const created = await createCategoryMutation.mutateAsync(parsedName.data);
       setNewCategoryName("");
       setCategory((current) => current || created.name);
       setNotice("Category created.");
@@ -289,9 +303,17 @@ const ProductsPage = () => {
   const saveCategoryName = async (id: string) => {
     setCategoryError("");
     setNotice("");
+    const parsedName = categoryNameSchema.safeParse(editingCategoryName);
+    if (!parsedName.success) {
+      setCategoryError(
+        parsedName.error.issues[0]?.message ?? "Check the category name.",
+      );
+      return;
+    }
+
     try {
       const previousName = categories.find((item) => item.id === id)?.name;
-      const nextName = editingCategoryName.trim();
+      const nextName = parsedName.data;
       await updateCategoryMutation.mutateAsync({
         id,
         name: nextName,
@@ -470,7 +492,12 @@ const ProductsPage = () => {
                   placeholder="e.g. 250.00"
                   required
                   value={price}
-                  onChange={(event) => setPrice(event.target.value)}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (/^\d{0,8}(?:\.\d{0,2})?$/.test(value)) {
+                      setPrice(value);
+                    }
+                  }}
                 />
               </Field>
               <Field className="gap-1.5 sm:col-span-2">
@@ -653,6 +680,7 @@ const ProductsPage = () => {
                   <Input
                     type="search"
                     aria-label="Search products"
+                    maxLength={100}
                     placeholder="Search by name..."
                     value={productSearch}
                     onChange={(event) => setProductSearch(event.target.value)}

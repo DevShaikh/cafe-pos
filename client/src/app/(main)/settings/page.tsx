@@ -175,15 +175,19 @@ const SettingsPage = () => {
                 <div className="relative">
                   <Input
                     id="tax-rate"
-                    type="number"
+                    type="text"
                     inputMode="decimal"
-                    min="0"
-                    max="100"
-                    step="0.01"
+                    maxLength={6}
                     value={values.taxRatePercent}
                     onChange={(event) => {
-                      setRateError("");
-                      updateDraft({ taxRatePercent: event.target.value });
+                      const value = event.target.value;
+                      if (
+                        /^\d{0,3}(?:\.\d{0,2})?$/.test(value) &&
+                        (!value || Number(value) <= 100)
+                      ) {
+                        setRateError("");
+                        updateDraft({ taxRatePercent: value });
+                      }
                     }}
                     onBlur={() => {
                       if (percentageToBasisPoints(values.taxRatePercent) === null) {

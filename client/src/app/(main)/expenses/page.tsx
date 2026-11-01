@@ -284,9 +284,15 @@ const ExpensesPage = () => {
                   type="text"
                   inputMode="decimal"
                   autoComplete="off"
+                  maxLength={11}
                   placeholder="0.00"
                   value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (/^\d{0,8}(?:\.\d{0,2})?$/.test(value)) {
+                      setAmount(value);
+                    }
+                  }}
                   aria-invalid={Boolean(formError && amountToPaisa(amount) === null)}
                 />
               </Field>

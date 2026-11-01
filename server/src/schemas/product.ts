@@ -39,7 +39,7 @@ export const createCategorySchema = z
   .strict();
 
 export const updateCategorySchema = createCategorySchema;
-export const categoryIdSchema = z.string().trim().min(1).max(64);
+export const categoryIdSchema = z.uuid();
 
 export type ProductListQuery = z.infer<typeof productListQuerySchema>;
 export type CreateProductInput = z.infer<typeof createProductSchema>;
