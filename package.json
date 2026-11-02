@@ -1,6 +1,6 @@
 {
   "name": "cafe-pos",
-  "version": "2026.11.1",
+  "version": "2026.11.2",
   "private": true,
   "description": "A locally deployable cafe point-of-sale application.",
   "main": "electron/main.cjs",
@@ -40,22 +40,30 @@
       {
         "from": "client/.next/standalone",
         "to": "client",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "client/.next/static",
         "to": "client/.next/static",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "client/public",
         "to": "client/public",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "release/server",
         "to": "server",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "node_modules/node-win-x64/bin/node.exe",
@@ -63,7 +71,9 @@
       }
     ],
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "artifactName": "Cafe-POS-Setup-${version}.${ext}"
     },
     "nsis": {
