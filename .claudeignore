@@ -1,0 +1,19 @@
+# Dependency directories
+node_modules/
+.next/
+build/
+dist/
+out/
+.expo/
+
+# Environment files and build caches
+.env*
+.cache/
+.npm/
+
+# Media & Assets
+public/assets/
+public/images/
+*.mp4
+*.png
+*.jpg

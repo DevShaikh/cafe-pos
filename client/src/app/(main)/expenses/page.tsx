@@ -103,6 +103,8 @@ const ExpensesPage = () => {
   const [pageIndex, setPageIndex] = useState(0);
 
   useEffect(() => {
+    // Initialize in the browser so server rendering cannot mismatch its local timezone.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSpentAt(localDateTimeValue());
   }, []);
 
