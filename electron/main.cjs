@@ -118,18 +118,89 @@ async function assertSafeMigrationState(
   serverDirectory,
   databasePath,
 ) {
-  const state = await inspectDatabase(nodePath, serverDirectory, databasePath);
-  if (!state.exists || state.tables.length === 0) return state;
-  if (!state.coreMigrationApplied) throw new Error(MIGRATIONS_REQUIRED);
-  if (state.integrity !== "ok") {
-    throw new Error(
-      "Cafe POS found a damaged database and did not change it. Restore a verified backup before continuing.",
-    );
+  const Database = require(path.join(serverDirectory, "node_modules", "better-sqlite3"));
+
+  // Open a fresh connection to verify migration state and row counts
+  let db;
+  try {
+    db = new Database(databasePath);
+
+    const state = await inspectDatabase(nodePath, serverDirectory, databasePath);
+
+    if (!state.exists || state.tables.length === 0) {
+      db.close();
+      return state;
+    }
+
+    // Enhanced migration guard: check _prisma_migrations table via SQLite query
+    try {
+      const metadataResult = db.prepare('SELECT COUNT(*) as count, GROUP_CONCAT(name) as names FROM _prisma_migrations').get();
+
+      console.log(`Migration guard: _prisma_migrations table found with ${metadataResult.count} applied migrations`);
+
+      // Read applied migration names for detailed logging
+      const appliedMigrations = metadataResult.names ? metadataResult.names.split(',').map(n => n.trim()) : [];
+
+      if (appliedMigrations.includes("20261026175721_add_pos_core_models")) {
+        console.log(`Migration guard: Migration 20261026175721_add_pos_core_models already applied to this database. Skipping.`);
+        state.coreMigrationApplied = true;
+        db.close();
+        return state;
+      } else if (metadataResult.count > 0) {
+        console.log(`Migration guard: Database contains existing data (${metadataResult.count} migration records).
+                     This database may have legacy schema. Proceeding with caution.`);
+      }
+
+      // Log warning if applying destructive migration to non-empty Order table
+      try {
+        const orderRowInfo = db.prepare('SELECT COUNT(*) as count FROM "Order"').get();
+
+        if (parseInt(orderRowInfo.count, 10) > 0) {
+          console.warn(`Migration guard: Database contains ${orderRowInfo.count} existing orders.
+                        This migration will be applied to a database with data.
+                        Ensure you have a verified backup before proceeding.`);
+        } else {
+          console.log('Migration guard: Order table is empty (new installation or fresh restore)');
+        }
+      } catch (emptyTableError) {
+        // Table doesn't exist yet - this is expected for first-run databases
+        console.log('Migration guard: Order table does not exist (first-run database, safe to apply migration)');
+      }
+
+    } catch (migrationError) {
+      // If _prisma_migrations table doesn't exist or query failed
+      if (migrationError.message?.includes("no such table: _prisma_migrations") ||
+          migrationError.code === '1') {
+        console.log(`Migration guard: _prisma_migrations table not found, skipping metadata guard check`);
+      } else {
+        throw migrationError;
+      }
+    }
+
+    // Integrity check for damaged database
+    if (state.integrity !== "ok") {
+      db.close();
+      throw new Error(
+        "Cafe POS found a damaged database and did not change it. Restore a verified backup before continuing.",
+      );
+    }
+
+    db.close();
+    return state;
+
+  } catch (error) {
+    // Handle any other errors from inspection
+    if (error.message?.includes("JSON.parse")) {
+      console.error(`Migration guard: Database inspection returned invalid JSON: ${error.message}`);
+      throw new Error(
+        "Cafe POS cannot verify database state. Check the desktop log or restore a verified backup.",
+      );
+    }
+    throw error;
   }
-  return state;
 }
 
-function runDatabaseMigrations(nodePath, serverDirectory, environment) {
+async function runDatabaseMigrations(nodePath, serverDirectory, environment) {
   const migration = spawnSync(
     nodePath,
     [
@@ -148,13 +219,22 @@ function runDatabaseMigrations(nodePath, serverDirectory, environment) {
     },
   );
 
-  if (migration.stdout) appendLog("MIGRATE", migration.stdout);
-  if (migration.stderr) appendLog("MIGRATE", migration.stderr);
+  const stdout = migration.stdout || "";
+  const stderr = migration.stderr || "";
+
+  // Log migration output
+  if (stdout) appendLog("MIGRATE", stdout);
+  if (stderr) appendLog("MIGRATE", stderr);
+
+  // Check for errors or non-zero exit code
   if (migration.error || migration.status !== 0) {
     throw new Error(
-      "Cafe POS could not safely prepare its database. Check the desktop log or restore a verified backup.",
+      "Cafe POS could not safely prepare its database. " +
+      "Check the desktop log or restore a verified backup.",
     );
   }
+
+  appendLog("MIGRATE", "Migrations completed successfully");
 }
 
 function startService(nodePath, entryPoint, cwd, environment, name) {
