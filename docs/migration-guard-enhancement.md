@@ -14,7 +14,7 @@ The migration `20261026175721_add_pos_core_models` is destructive - it drops the
 
 ## Solution Implemented
 
-### 1. Enhanced Migration Guard in `assertSafeMigrationState()`
+### Enhanced Migration Guard in `assertSafeMigrationState()`
 
 **Location:** `electron/main.cjs` lines 116-201
 
@@ -27,23 +27,7 @@ The enhanced guard now:
 5. **Handles first-run databases** where metadata table doesn't exist gracefully
 6. **Provides clear error messages** for damaged or corrupted databases
 
-**Key Implementation Details:**
-
-The enhanced guard now:
-
-1. **Opens database directly** using better-sqlite3 for native SQL queries to read `_prisma_migrations` metadata
-2. **Reads applied migration names** from the `names` column when `_prisma_migrations` table exists
-3. **Logs explicit warnings** when applying destructive migrations (`20261026175721_add_pos_core_models`) to non-empty databases with existing data
-4. **Checks Order table existence and row count** to distinguish first-run vs. upgrade scenarios
-5. **Handles missing metadata table gracefully** - treats as first-run database when `_prisma_migrations` doesn't exist
-6. **Validates database integrity** using the inspection JSON before proceeding
-
-The implementation uses direct better-sqlite3 queries instead of relying solely on Prisma's migration tracking, enabling proper detection of:
-- Migration metadata present but not in Prisma's applied list
-- Existing data that would be affected by destructive migrations
-- First-run installations where no prior migration exists
-
-### 2. Simplified Migration Execution
+### Simplified Migration Execution
 
 **Location:** `electron/main.cjs` lines 203-248
 
@@ -142,15 +126,6 @@ To verify migration guard works correctly:
 
 - `electron/main.cjs` - Lines 116-201 (`assertSafeMigrationState()`)
 - `electron/main.cjs` - Lines 203-248 (`runDatabaseMigrations()`)
-
----
-
-## Next Steps
-
-1. **Commit changes to Git** after user reviews
-2. **Test migration guard** with database copy containing products data
-3. **Update PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md** with Issue #2 status
-4. **Consider adding row count verification** in future release if destructive migrations change
 
 ---
 
