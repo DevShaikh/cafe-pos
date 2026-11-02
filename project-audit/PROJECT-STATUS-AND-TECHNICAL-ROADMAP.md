@@ -42,7 +42,7 @@ The following are supported by current source; test and browser evidence is date
 - Manual payment recording updates unpaid server orders with a selected method. Server-backed order history returns filtered counts and unpaid counts, supports cursor pagination, date filters, receipt-number search, and an Unpaid-only view, and displays the recorded payment method; sales reports aggregate paid orders with date/session filters.
 - Sales Reports presents collected payments, paid-order count, and average order value as summary cards, with a tabular breakdown by dine-in/takeaway and totals. Date and cashier-session filters use the shared shadcn control styling.
 - Settings at `/settings` lets authenticated staff enable/disable checkout tax and configure a rate from 0% to 100% in hundredth-percent increments. Changes are audit-logged; existing orders keep their saved totals and rate. Checkout preview, server order totals, and printed receipts use the saved setting.
-- Settings also exposes manual local backup and restore controls. The desktop utility (electron/main.cjs) copies the SQLite database and product photos, inspects a backup before restore, and makes a pre-restore safety copy. Backup creation uses better-sqlite3's `.backup()` method for consistent binary copies. Implementation verified at unit level in Electron; end-to-end restore, rollback, and recovery are not fully verified (user reported runtime error when attempting use; root cause unconfirmed).
+- Settings also exposes manual local backup and restore controls. The desktop utility (electron/main.cjs) copies the SQLite database and product photos, inspects a backup before restore, and makes a pre-restore safety copy. Backup creation uses better-sqlite3's `.backup()` method for consistent binary copies with journal-mode rollback. Implementation verified at unit level in Electron; end-to-end restore, rollback, and full recovery have not been exercised in production workflow (user reported runtime error when attempting use; root cause unconfirmed).
 - A desktop first-run setup flow provisions the initial administrator with a hashed four-digit PIN and does not rely on a seeded shared credential. Login and initial setup requests have an in-memory per-IP rate limit. The API binds to loopback in the desktop startup configuration.
 - A Windows x64 NSIS packaging pipeline stages a Next.js standalone client, production server dependencies and Prisma migrations, and a bundled Node runtime. Electron starts and supervises the local API/client processes, creates a per-install JWT secret, logs startup, and uses a migration guard with safety backup handling for recognized existing databases.
 - Receipt paper width can be configured as 58mm or 80mm and is reflected in the print template. Physical printer-driver output has not been tested.
@@ -72,8 +72,32 @@ The following are supported by current source; test and browser evidence is date
 
 1. **PowerShell cookie-session discrepancy:** The PowerShell web-session smoke test did not preserve the production `Secure` loopback cookie and its next `/auth/me` request returned 401. This was not reproduced in Chromium against the packaged local services: first-run setup, invalid-credential rejection, valid login, and session persistence after refresh all passed. No cookie-security setting was weakened. Confirm native Electron-window behavior during Windows installation acceptance.
 2. **Login throttling is process-local:** Setup and login use an in-memory per-IP request limit. This is proportionate for the single-process local app, but it resets on restart and is not a durable lockout policy.
-3. **Migration compatibility:** `20261026175721_add_pos_core_models` drops the old `products` table. The desktop guard avoids applying migrations to certain unrecognized nonempty databases, and recognized upgrades create a safety backup, but existing customer database upgrade/rebaseline behavior has not been rehearsed. Preserve migration history and test only on copies.
-4. **Backup recovery is not verified end to end:** Utility-level backup/inspection succeeded, but restoration, rollback, and application recovery from a restored copy remain untested.
+3. **Migration compatibility (Destructive Products Migration):** `20261026175721_add_pos_core_models` contains a destructive Products table operation: DROP TABLE then CREATE TABLE. The Electron migration guard (`assertSafeMigrationState()`) checks `_prisma_migrations` metadata and avoids applying migrations to unrecognized databases, creating a safety backup for recognized upgrades. Guard protects against reapplication but does not guarantee safe upgrade—migration compatibility must be verified on a copy containing representative data. Existing customer database upgrade behavior has not been rehearsed; preserve migration history and test only on copies.
+4. **Backup recovery (Implemented but Unverified End-to-End):** Utility-level backup creation and inspection succeeded using better-sqlite3 binary copy with journal-mode rollback. Restoration, rollback from failed restore, and full application recovery have not been exercised end-to-end in production workflow. User reported runtime error during attempted restore; root cause requires investigation (see section "Database Backup & Restore — Known Issue").
+
+### Database Backup & Restore — Documentation Gaps
+  - **Backup retention policy:** No documented retention schedule (e.g., daily weekly, off-site copy). Backups must be kept outside the POS computer and on separate media.
+  - **Stand-alone restore workflow:** Restore is available via desktop UI but lacks step-by-step runbook, timing requirements, and verification checklist.
+  - **Recovery documentation requirements:** Recovery guide should cover: backup location identification, integrity verification, database replacement procedure, application restart, and post-restore data validation against known backups.
+
+### Migration Guard Behavior and Limitations
+  - **Guard mechanism:** `assertSafeMigrationState()` verifies `_prisma_migrations` metadata exists before allowing migration application.
+  - **Protection scope:** Guards prevent reapplication of migrations to databases already tracked in metadata.
+  - **Limitation:** Guard does not validate that migration SQL compatibility with existing data is safe—only that migration hasn't already been applied.
+  - **Recovery risk if guard bypassed:** Without intact `_prisma_migrations` table or corrupted metadata, migrations may be reapplied unconditionally, risking destructive operations on existing customer data.
+  - **Metadata backup recommendation:** Migration metadata and schema history should be backed up alongside the SQLite database.
+
+#### Known Issue #4A: User-Reported Runtime Error During Restore Attempt (Pending Root Cause Analysis)
+  - **Issue description:** User reported runtime error when attempting to use the backup restore functionality via desktop UI. Exact error message not yet documented; requires investigation of crash logs or console output.
+  - **Current status:** Investigation pending. The implementation exists in `electron/main.cjs` but the root cause of the user-reported failure has not been confirmed.
+  - **Likely categories:** Could be file-path validation, backup manifest mismatch, database integrity check failure, or filesystem permission issue.
+  - **Investigation requirements:** 
+    1. Capture exact error message from console/dialog during restore attempt.
+    2. Check `app.getPath('userData')` logs in `electron/logs/desktop.log`.
+    3. Verify backup directory structure matches `backup.json` manifest expectations.
+    4. Confirm pre-restore safety copy creation completes successfully.
+  - **Mitigation:** Until root cause is confirmed, recommend users manually copy database file and product-images folder before attempting restore operations.
+
 5. **Category consistency is enforced in the API:** `Product.category` remains a text field for compatibility with the checkout contract. Category rename and deletion safeguards run transactionally through the API; direct database edits can leave the category registry out of sync.
 6. **Logout does not revoke JWT server-side:** It clears the browser cookie; a copied token remains valid until expiry or staff deactivation. Lower urgency for a local single terminal, but should be documented.
 7. **Installer trust/signing:** The Windows installer is unsigned and uses Electron's default icon. SmartScreen warnings and distribution trust remain release concerns.
@@ -94,6 +118,13 @@ The following are supported by current source; test and browser evidence is date
 - Error feedback still varies among screens; logout and receipt-print failures now have visible feedback.
 - App has an inline not-found handler and a separate middleware definition with different codes/messages.
 - Idempotency replay parses saved JSON without validating the response shape. The current payload is internally generated; no external injection path was established.
+
+### Electron Startup Storage Verification (2026-11-02)
+  - **Source evidence:** `electron/main.cjs` line 630 calls `sessionCookieCleanup()` on startup, which uses `electron.session.cookies.remove()` to delete the `pos_session` cookie from both `127.0.0.1:3001` and `localhost:3001`.
+  - **localStorage vs cookies:** Electron's `cookies.remove()` API specifically removes HTTP cookies. It does NOT clear localStorage or sessionStorage, which are browser-managed storage APIs. The code contains no call to `session.clearStorageData()` or similar.
+  - **Legacy receipts storage:** Receipts are persisted via Zustand's `persist` middleware in `client/src/store/order.store.ts` (using localStorage). These persist independently of Electron startup cookie cleanup.
+  - **Session cookie handling:** Session cookies are session-specific and tied to the localhost/loopback URLs. Removal does not affect server-backed order data stored in SQLite; it only affects browser-based authentication state.
+  - **Corrected finding:** The original audit claim that "Electron clears localStorage on startup" was inaccurate. The correct behavior is: Electron removes session cookies at startup (affecting authentication), but localStorage receipts persist across restarts until explicitly cleared by user action or app logic.
 
 ## Code quality and dependencies
 
