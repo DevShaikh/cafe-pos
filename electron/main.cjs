@@ -505,72 +505,188 @@ async function restoreManualBackup(event) {
     packagedPaths.databasePath,
     "pre-restore",
   );
+
+  // Log pre-restore backup location for manual recovery if needed
+  appendLog("RESTORE", `Pre-restore safety backup created at: ${beforeRestore}`);
+
   const stagingDirectory = path.join(
     packagedPaths.userDataPath,
     `.restore-stage-${getTimestamp()}`,
   );
+
+  // Validate source files exist and are readable before attempting restore
+  try {
+    const dbStat = fs.statSync(path.join(sourceDirectory, "cafe-pos.db"));
+    if (!dbStat.isFile()) {
+      throw new Error("Source database file not found or is not a regular file");
+    }
+    appendLog("RESTORE", `Source database file verified: ${sourceDirectory}/cafe-pos.db (${dbStat.size} bytes)`);
+  } catch (error) {
+    appendLog("RESTORE", `Failed to validate source database file: ${error.message}`);
+    throw new Error(`Cannot proceed with restore: Source database is missing or corrupted. Please try from a different backup.`);
+  }
+
   try {
     await fsPromises.mkdir(stagingDirectory);
+
+    // Copy database with verification
+    const dbDest = path.join(stagingDirectory, "cafe-pos.db");
     await fsPromises.copyFile(
       path.join(sourceDirectory, "cafe-pos.db"),
-      path.join(stagingDirectory, "cafe-pos.db"),
+      dbDest,
     );
-    await fsPromises.cp(
-      path.join(sourceDirectory, "product-images"),
-      path.join(stagingDirectory, "product-images"),
-      { recursive: true },
-    );
+    appendLog("RESTORE", `Database copied to staging directory`);
+
+    // Copy product images if they exist in source
+    const imagesSrc = path.join(sourceDirectory, "product-images");
+    try {
+      await fsPromises.stat(imagesSrc);
+      await fsPromises.cp(
+        imagesSrc,
+        path.join(stagingDirectory, "product-images"),
+        { recursive: true },
+      );
+      appendLog("RESTORE", `Product images copied from: ${imagesSrc}`);
+    } catch (statError) {
+      // product-images may not exist in all backups - that's okay
+      appendLog("RESTORE", "Product-images folder not found in source backup; copying optional directory skipped");
+    }
   } catch (error) {
+    // Clean up staging directory on failure
     await fsPromises.rm(stagingDirectory, { recursive: true, force: true });
+    appendLog("RESTORE-ERROR", `Restore preparation failed: ${error.message}`);
     throw error;
   }
   const environments = getDesktopEnvironments();
+
+  // Track restore operation state for better error context
+  const restoreContext = {
+    sourceDirectory: selection.filePaths[0],
+    beforeRestoreBackup: beforeRestore,
+    stagingDirectory: stagingDirectory,
+    failedAt: null,
+  };
+
   isRestartingServices = true;
+
+  // Log restore start for troubleshooting
+  appendLog("RESTORE", `Manual restore initiated from ${restoreContext.sourceDirectory}`);
+  appendLog("RESTORE", `Target database path: ${packagedPaths.databasePath}`);
+
   try {
+    // Stop services with logging
+    appendLog("RESTORE", "Stopping application services before restore");
     await stopService(clientProcess);
     await stopService(apiProcess);
     clientProcess = undefined;
     apiProcess = undefined;
+    appendLog("RESTORE", "Services stopped successfully");
+
+    // Install the staged backup with detailed logging
+    appendLog("RESTORE", `Installing backup from staging directory: ${stagingDirectory}`);
     await installBackup(stagingDirectory, packagedPaths.userDataPath);
-    await assertSafeMigrationState(
+    appendLog("RESTORE", "Backup installed to target database path");
+
+    // Validate migration state after restore
+    appendLog("RESTORE", "Validating database integrity and migration state after restore");
+    const migrationState = await assertSafeMigrationState(
       packagedPaths.nodePath,
       packagedPaths.serverDirectory,
       packagedPaths.databasePath,
     );
-    runDatabaseMigrations(
-      packagedPaths.nodePath,
-      packagedPaths.serverDirectory,
-      environments.api,
-    );
+
+    // Log migration validation results for debugging
+    appendLog("RESTORE", `Migration guard check passed: coreMigrationApplied=${migrationState.coreMigrationApplied}`);
+
+    // Start services after restore
     await startServices(environments.api, environments.client);
+    appendLog("RESTORE", "Services restarted successfully");
+
     mainWindow.webContents.reload();
+    appendLog("RESTORE", "Application window reloaded");
+
     return { canceled: false, path: sourceDirectory };
   } catch (error) {
+    // Failed at restore stage
+    restoreContext.failedAt = 'restore';
+    restoreContext.restoreError = error.message;
+    appendLog("RESTORE-ERROR", `Restore failed at installBackup/migration stage: ${error.message}`);
+
     try {
+      // Attempt rollback from pre-restore safety backup
+      appendLog("RESTORE", `Attempting automatic recovery from safety backup: ${beforeRestore}`);
+
       await stopService(clientProcess);
       await stopService(apiProcess);
       clientProcess = undefined;
       apiProcess = undefined;
+
       await installBackup(beforeRestore, packagedPaths.userDataPath);
+
+      // Validate the recovered backup before attempting migrations
+      const recoveryState = await inspectDatabase(
+        packagedPaths.nodePath,
+        packagedPaths.serverDirectory,
+        packagedPaths.databasePath,
+      );
+
+      if (!recoveryState.coreMigrationApplied) {
+        throw new Error(
+          `Safety backup is not migrated. Cannot recover from ${beforeRestore}.` +
+          `Please restore from a verified backup or contact support.`
+        );
+      }
+
+      if (recoveryState.integrity !== "ok") {
+        throw new Error(
+          `Recovered database integrity check failed: ${recoveryState.integrity}` +
+          `. Cannot proceed with automatic recovery.`
+        );
+      }
+
+      appendLog("RESTORE", "Safety backup validated successfully");
+
+      // Run migrations on recovered data
       runDatabaseMigrations(
         packagedPaths.nodePath,
         packagedPaths.serverDirectory,
         environments.api,
       );
+
       await startServices(environments.api, environments.client);
       mainWindow.webContents.reload();
+
+      appendLog("RESTORE", "Recovery successful - services restarted");
+
+      // Success message for debugging
+      console.log(`Restore recovery successful from ${beforeRestore}`);
+
     } catch (rollbackError) {
-      appendLog("RESTORE", rollbackError.stack ?? rollbackError.message);
+      restoreContext.failedAt = 'rollback';
+      restoreContext.rollbackError = rollbackError.message;
+
+      appendLog("RESTORE-ERROR", `Recovery from safety backup failed: ${rollbackError.message}`);
+
+      // Both restore and recovery failed - provide detailed error to user
       throw new Error(
-        `Restore failed and automatic recovery also failed. Do not start a new sale; contact support and provide the safety backup at ${beforeRestore}.`,
+        `Restore operation failed and automatic recovery also failed.\n\n` +
+        `Original error: ${error.message}\n\n` +
+        `Recovery error: ${rollbackError.message}\n\n` +
+        `The safety backup at ${beforeRestore} was used for recovery but it is corrupted or invalid.\n\n` +
+        `Do not start a new sale. Contact support and provide the safety backup path: ${beforeRestore}`
       );
+    } finally {
+      // Always clean up staging directory regardless of outcome
+      try {
+        await fsPromises.rm(stagingDirectory, { recursive: true, force: true });
+        appendLog("RESTORE", "Cleaned up staging directory");
+      } catch (cleanupError) {
+        // Ignore cleanup failures after restore failure
+        appendLog("RESTORE-ERROR", `Failed to clean staging directory: ${cleanupError.message}`);
+      }
+
+      isRestartingServices = false;
     }
-    throw new Error(
-      `Restore failed. The previous data was restored from the safety backup at ${beforeRestore}.`,
-    );
-  } finally {
-    isRestartingServices = false;
-    await fsPromises.rm(stagingDirectory, { recursive: true, force: true });
   }
 }
 
