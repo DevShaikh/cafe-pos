@@ -743,7 +743,8 @@ if (!hasSingleInstance) {
   app.whenReady().then(async () => {
     try {
       if (app.isPackaged) await startPackagedServices();
-      await sessionCookieCleanup();
+      // Note: Removed automatic sessionCookieCleanup() to preserve login state across restarts.
+      // Users can logout via UI when needed. Session cookies now persist until explicit logout or expiry.
       createWindow();
       app.on("activate", () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -777,13 +778,6 @@ if (!hasSingleInstance) {
   });
 }
 
-async function sessionCookieCleanup() {
-  const { session } = require("electron");
-  await Promise.all([
-    session.defaultSession.cookies.remove(
-      "http://127.0.0.1:3001",
-      "pos_session",
-    ),
-    session.defaultSession.cookies.remove("http://localhost:3001", "pos_session"),
-  ]);
-}
+
+
+// sessionCookieCleanup() was removed - cookies now persist across restarts to preserve login state
