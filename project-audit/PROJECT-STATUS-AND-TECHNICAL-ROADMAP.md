@@ -208,9 +208,106 @@ Continue to treat current source as authoritative for behavior. Use this documen
 3. Expand client/browser tests for printing, accessibility, and repeat operations.
 4. Remove unused/redundant dependencies or consolidate the class helper after checking builds and behavior.
 
-## Recommended next task
+## Fixes In Progress (Tracking Document)
 
-**Exercise restore on isolated data.** Backup creation and integrity inspection passed, but restore, product-photo recovery, pre-restore safety copy, and rollback remain unverified. Use isolated temporary data and verify restored orders/settings/photos before any real cafe data is at risk.
+**Last updated:** 2026-11-02  
+**Owner:** Development team  
+**Status:** Implementation pending user approval  
+
+### Issue #1: Restore Runtime Error (HIGH CRITICAL - Immediate)
+
+**Current state:** User reported runtime error during backup restore attempt. Root cause unconfirmed, investigation pending.
+
+**Proposed fix:** Add comprehensive error logging and safety verification to `restoreManualBackup()` function in `electron/main.cjs`.
+
+**Approach:**
+1. Add detailed console.error() calls with stack traces at all failure points
+2. Verify pre-restore safety copy exists before attempting rollback
+3. Convert cryptic errors to user-friendly dialog messages with recovery steps
+
+**Files to modify:** `electron/main.cjs` (lines 501-575 in restoreManualBackup)
+
+**Testing required:** Test restore with valid backup, corrupted backup, and missing safety copy scenarios.
+
+---
+
+### Issue #3: Session Cookie Clearing on Startup (HIGH - Before Operation)
+
+**Current state:** Electron calls `sessionCookieCleanup()` on every startup, clearing login session cookie but preserving localStorage receipts. This forces re-login each launch.
+
+**Proposed fix:** Remove automatic session cookie clearing from startup sequence.
+
+**Approach:** Remove or comment out line 630 in `electron/main.cjs` that calls `await sessionCookieCleanup();`. Keep the function definition for explicit logout actions.
+
+**Files to modify:** `electron/main.cjs` (line 630)
+
+**Testing required:** Verify login persists after restart and logout still works via UI.
+
+---
+
+### Issue #2: Destructive Migration Guard (HIGH - Before Real Data)
+
+**Current state:** Migration `20261026175721_add_pos_core_models` drops existing products table before recreating it. Guard only checks metadata exists, not migration compatibility with data.
+
+**Proposed fix:** Enhance migration guard to verify row counts before/after destructive migration and log explicit warnings.
+
+**Approach:**
+1. Add pre-migration row count check for Product table
+2. Compare row counts after migration fails if any rows lost
+3. Log warning when applying migration to non-empty database
+
+**Files to modify:** `electron/main.cjs` (lines 116-130 in assertSafeMigrationState), `server/prisma/migrations/20261026175721_add_pos_core_models/migration.sql`
+
+**Testing required:** Run migration against database copy with product data, verify row counts preserved.
+
+---
+
+### Issue #4: Missing Backup/Restore Runbook (HIGH - Before Production)
+
+**Current state:** No documented retention policy, recovery steps, or verification checklist for backup operations.
+
+**Proposed fix:** Create `docs/backup-restore-runbook.md` with complete workflow documentation.
+
+**Scope:**
+1. Retention schedule (daily/weekly/monthly backups)
+2. Storage locations (separate local drive + off-site)
+3. Pre-backup integrity checks
+4. Step-by-step restore procedure
+5. Post-restore validation checklist
+
+**Files to create:** `docs/backup-restore-runbook.md` (NEW FILE)
+
+---
+
+### Issue #5: Error Handling Improvements (MEDIUM)
+
+**Current state:** Parser errors misclassified, no request correlation IDs, inconsistent client feedback.
+
+**Proposed fix:** Improve error classification and logging consistency across API routes.
+
+**Scope:**
+1. Map parser failures to appropriate 4xx codes
+2. Add shared request ID to logs
+3. Standardize error feedback messages in UI
+
+**Files to modify:** `server/src/error-handler.ts`, various controller files, client UI components
+
+---
+
+## Recommended Action Order (Dependency Graph)
+
+```mermaid
+graph TD
+    A[Issue #1: Restore Error Handling] --> D[Issue #4: Backup Runbook Documentation]
+    B[Issue #3: Session Cookie Fix] -.-> C[Issue #2: Migration Guard Enhancement]
+    C --> D
+    E[Issue #5: Error Handling] -.-> D
+```
+
+**Estimated Timeline:** ~10-14 hours total across 5 phases  
+**Start date:** Pending user approval after code review  
+
+---
 
 ## Important decisions to preserve
 
@@ -220,3 +317,9 @@ Continue to treat current source as authoritative for behavior. Use this documen
 - Orders print when created, before payment; payments are manual confirmations, not payment-gateway transactions.
 - Preserve committed Prisma migration history. Back up and test against a copy before risky schema changes.
 - The 2026-11-01 documentation refresh and subsequent UI follow-up are reflected in this status document. The follow-up added the `input-otp` client dependency via the configured shadcn CLI; unrelated worktree changes were left untouched.
+
+---
+
+## Next task after fixes complete
+
+Exercise restore on isolated data. Backup creation and integrity inspection passed, but restore, product-photo recovery, pre-restore safety copy, and rollback remain unverified. Use isolated temporary data and verify restored orders/settings/photos before any real cafe data is at risk.
