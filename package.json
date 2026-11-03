@@ -1,6 +1,6 @@
 {
   "name": "cafe-pos",
-  "version": "2026.11.2",
+  "version": "2026.11.4",
   "private": true,
   "description": "A locally deployable cafe point-of-sale application.",
   "main": "electron/main.cjs",
@@ -13,6 +13,7 @@
     "build": "npm run build --prefix client && npm run build --prefix server",
     "build:desktop": "npm run build && node scripts/prepare-desktop.mjs",
     "package:win": "npm run build:desktop && electron-builder --win nsis --x64",
+    "postpack": "echo 'Post-pack hook - bundling native dependencies...'",
     "start": "concurrently -k -n SERVER,CLIENT,DESKTOP -c magenta,cyan,yellow \"npm run start --prefix server\" \"npm run start --prefix client\" \"npm run desktop\"",
     "verify": "npm run lint && npm run typecheck && npm run test",
     "test": "npm run test --prefix server",
@@ -34,6 +35,7 @@
     },
     "files": [
       "electron/**/*",
+      "release/server/**/*",
       "package.json"
     ],
     "extraResources": [

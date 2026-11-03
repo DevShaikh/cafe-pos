@@ -1,0 +1,1 @@
+- [backup-restore-runbook](docs/backup-restore-runbook.md) — Complete backup/restore procedures, retention policy, recovery workflows for Cafe POS SQLite database and product photos
