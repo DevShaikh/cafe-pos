@@ -111,7 +111,8 @@ const ReceiptPanel = () => {
   const taxRateBps = taxSettingsQuery.data?.taxEnabled
     ? taxSettingsQuery.data.taxRateBps
     : 0;
-  const isOrderTypeTrackingEnabled = taxSettingsQuery.data?.orderTypeVisibilityEnabled ?? false;
+  const isOrderTypeTrackingEnabled =
+    taxSettingsQuery.data?.orderTypeVisibilityEnabled ?? false;
 
   const taxPaisa = Math.round((subtotalPaisa * taxRateBps) / 10000);
   const totalPaisa = subtotalPaisa + taxPaisa;
@@ -177,8 +178,8 @@ const ReceiptPanel = () => {
     : null;
   return (
     <Card className="flex h-full w-100 shrink-0 flex-col overflow-hidden rounded-2xl p-0 shadow-sm">
-      <div className="border-b border-border p-6">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="border-b border-border p-4 space-y-4">
+        <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Receipt Workspace
@@ -187,8 +188,8 @@ const ReceiptPanel = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
-          {taxSettingsQuery.data?.taxEnabled && isOrderTypeTrackingEnabled ? (
+        {taxSettingsQuery.data?.taxEnabled && isOrderTypeTrackingEnabled ? (
+          <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
             <>
               <Button
                 type="button"
@@ -217,8 +218,8 @@ const ReceiptPanel = () => {
                 Takeaway
               </Button>
             </>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
@@ -348,7 +349,7 @@ const ReceiptPanel = () => {
             !taxSettingsQuery.data
           }
           size="lg"
-          className="w-full rounded-lg px-4 py-3 text-base shadow-sm transition-transform active:scale-[0.98]"
+          className="w-full h-11 rounded-lg px-4 py-4 text-base shadow-sm transition-transform active:scale-[0.98]"
         >
           {isPrinting ? (
             <>

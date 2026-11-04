@@ -12,7 +12,9 @@ async function main() {
       id: "singleton",
       cafeName: "Cafe POS",
       currency: "PKR",
-      taxRateBps: 800, // 8%
+      taxEnabled: false, // Tax disabled by default
+      taxRateBps: 0, // 0% (disabled)
+      orderTypeVisibilityEnabled: false, // Order type tracking disabled by default
       receiptPrefix: "R",
     },
   });
