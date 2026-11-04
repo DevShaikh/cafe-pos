@@ -217,11 +217,7 @@ const ReceiptPanel = () => {
                 Takeaway
               </Button>
             </>
-          ) : (
-            <div className="flex-1 px-3 py-2 text-sm font-semibold text-muted-foreground">
-              Order Type: All items
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
 
