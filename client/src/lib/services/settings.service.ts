@@ -4,12 +4,13 @@ import type { ServiceResponse } from "@/types";
 export type TaxSettings = {
   taxEnabled: boolean;
   taxRateBps: number;
+  orderTypeVisibilityEnabled: boolean;
   updatedAt: string;
 };
 
 export type UpdateTaxSettingsInput = Pick<
   TaxSettings,
-  "taxEnabled" | "taxRateBps"
+  "taxEnabled" | "taxRateBps" | "orderTypeVisibilityEnabled"
 >;
 
 export const getTaxSettings = (

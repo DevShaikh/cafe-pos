@@ -42,6 +42,7 @@ import {
 type TaxSettingsDraft = {
   taxEnabled: boolean;
   taxRatePercent: string;
+  orderTypeVisibilityEnabled: boolean;
 };
 
 function percentageToBasisPoints(value: string): number | null {
@@ -81,10 +82,11 @@ const SettingsPage = () => {
 
   const settings = settingsQuery.data;
   const values = draft ?? {
-    taxEnabled: settings?.taxEnabled ?? true,
+    taxEnabled: settings?.taxEnabled ?? false,
     taxRatePercent: settings
       ? (settings.taxRateBps / 100).toFixed(2)
-      : "8.00",
+      : "0.00",
+    orderTypeVisibilityEnabled: settings?.orderTypeVisibilityEnabled ?? false,
   };
   const rateBps = percentageToBasisPoints(values.taxRatePercent);
   const hasChanges =
@@ -108,7 +110,7 @@ const SettingsPage = () => {
 
     setRateError("");
     updateSettings.mutate(
-      { taxEnabled: values.taxEnabled, taxRateBps: rateBps },
+      { taxEnabled: values.taxEnabled, taxRateBps: rateBps, orderTypeVisibilityEnabled: values.orderTypeVisibilityEnabled },
       {
         onSuccess: () => {
           setDraft(null);
@@ -340,6 +342,35 @@ const SettingsPage = () => {
           </div>
         </form>
       ) : null}
+
+      <Card className="max-w-3xl">
+        <CardHeader className="border-b">
+          <CardTitle className="text-xl">Order Type Tracking</CardTitle>
+          <CardDescription className="text-base">
+            Toggle whether both Dine-in and Takeaway orders are tracked separately. When disabled, all orders will be recorded without order type distinction.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 p-6">
+          <div className="flex flex-col gap-3">
+            <Field>
+              <FieldLabel htmlFor="order-type-tracking-toggle">Enable Order Type Tracking</FieldLabel>
+              <FieldDescription>Toggle this on to track both Dine-in and Takeaway orders separately. Turn it off to record all orders without distinguishing between order types.</FieldDescription>
+              <div className="flex items-center gap-3">
+                <Switch
+                  id="order-type-tracking-toggle"
+                  checked={values.orderTypeVisibilityEnabled ?? false}
+                  onCheckedChange={(checked) =>
+                    updateDraft({ orderTypeVisibilityEnabled: checked })
+                  }
+                />
+                <span className="text-sm text-muted-foreground">
+                  {(values.orderTypeVisibilityEnabled ?? false) ? "✓ Order type tracking is enabled" : "✗ Order type tracking is disabled"}
+                </span>
+              </div>
+            </Field>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="max-w-3xl">
         <CardHeader className="border-b">

@@ -14,11 +14,7 @@ import {
 import { useReactToPrint } from "react-to-print";
 import { useCartStore, useCartActions } from "@/store/cart.store";
 import { createUuid, formatPaisa, cn } from "@/lib/utils";
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useCreateOrder } from "@/lib/hooks/order.hooks";
@@ -115,6 +111,8 @@ const ReceiptPanel = () => {
   const taxRateBps = taxSettingsQuery.data?.taxEnabled
     ? taxSettingsQuery.data.taxRateBps
     : 0;
+  const isOrderTypeTrackingEnabled = taxSettingsQuery.data?.orderTypeVisibilityEnabled ?? false;
+
   const taxPaisa = Math.round((subtotalPaisa * taxRateBps) / 10000);
   const totalPaisa = subtotalPaisa + taxPaisa;
 
@@ -124,7 +122,8 @@ const ReceiptPanel = () => {
       isPrinting ||
       !currentSessionQuery.data ||
       !taxSettingsQuery.data
-    ) return;
+    )
+      return;
 
     setIsPrinting(true);
     setPrintError("");
@@ -151,7 +150,9 @@ const ReceiptPanel = () => {
       clearCartStore();
       setOrderType("DINE_IN");
     } catch (error) {
-      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      const status = axios.isAxiosError(error)
+        ? error.response?.status
+        : undefined;
       if (status !== undefined && status < 500) {
         clearPendingOrderKey();
         setPendingInput(null);
@@ -187,40 +188,48 @@ const ReceiptPanel = () => {
         </div>
 
         <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
-          <Button
-            type="button"
-            onClick={() => setOrderType("DINE_IN")}
-            disabled={isPrinting || !!pendingInput}
-            aria-pressed={orderType === "DINE_IN"}
-            variant={orderType === "DINE_IN" ? "secondary" : "ghost"}
-            className={cn(
-              "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all",
-              orderType === "DINE_IN" && "bg-background shadow-sm",
-            )}
-          >
-            Dine in
-          </Button>
-          <Button
-            type="button"
-            onClick={() => setOrderType("TAKEAWAY")}
-            disabled={isPrinting || !!pendingInput}
-            aria-pressed={orderType === "TAKEAWAY"}
-            variant={orderType === "TAKEAWAY" ? "secondary" : "ghost"}
-            className={cn(
-              "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all",
-              orderType === "TAKEAWAY" && "bg-background shadow-sm",
-            )}
-          >
-            Takeaway
-          </Button>
+          {taxSettingsQuery.data?.taxEnabled && isOrderTypeTrackingEnabled ? (
+            <>
+              <Button
+                type="button"
+                onClick={() => setOrderType("DINE_IN")}
+                disabled={isPrinting || !!pendingInput}
+                aria-pressed={orderType === "DINE_IN"}
+                variant={orderType === "DINE_IN" ? "secondary" : "ghost"}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all",
+                  orderType === "DINE_IN" && "bg-background shadow-sm",
+                )}
+              >
+                Dine in
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setOrderType("TAKEAWAY")}
+                disabled={isPrinting || !!pendingInput}
+                aria-pressed={orderType === "TAKEAWAY"}
+                variant={orderType === "TAKEAWAY" ? "secondary" : "ghost"}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-all",
+                  orderType === "TAKEAWAY" && "bg-background shadow-sm",
+                )}
+              >
+                Takeaway
+              </Button>
+            </>
+          ) : (
+            <div className="flex-1 px-3 py-2 text-sm font-semibold text-muted-foreground">
+              Order Type: All items
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4">
         {cartArray.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <div className="mb-4 rounded-full bg-muted p-4">
-              <Receipt className="h-8 w-8 text-muted-foreground" />
+          <div className="flex h-full flex-col items-center justify-center text-center p-4">
+            <div className="mb-3 rounded-full bg-muted p-3">
+              <Receipt className="h-6 w-6 text-muted-foreground" />
             </div>
             <p className="text-sm font-medium text-foreground">
               {isPrinting ? "Generating receipt..." : "Cart is empty"}
@@ -232,30 +241,33 @@ const ReceiptPanel = () => {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2">
             {cartArray.map((item) => {
               const lineTotalPaisa = item.pricePaisa * item.quantity;
               return (
-                <div key={item.id} className="flex gap-3">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                    <Receipt size={20} />
+                <div
+                  key={item.id}
+                  className="flex gap-3 items-center hover:bg-muted/40 rounded-md p-2 transition-colors"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground">
+                    <Receipt size={16} />
                   </div>
-                  <div className="flex flex-1 flex-col justify-between">
-                    <div className="flex items-start justify-between">
+                  <div className="flex flex-1 flex-col">
+                    <div className="flex items-start justify-between mb-1">
                       <div>
-                        <h4 className="text-sm font-bold text-foreground">
+                        <h4 className="text-sm font-semibold text-foreground leading-tight">
                           {item.name}
                         </h4>
                         <p className="text-xs text-muted-foreground">
                           {formatPaisa(item.pricePaisa)} each
                         </p>
                       </div>
-                      <p className="text-sm font-bold text-foreground">
+                      <p className="text-sm font-bold text-foreground whitespace-nowrap">
                         {formatPaisa(lineTotalPaisa)}
                       </p>
                     </div>
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="flex items-center gap-1 rounded-lg border border-border p-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1 rounded-md border bg-background p-1">
                         <Button
                           type="button"
                           onClick={() => {
@@ -267,11 +279,11 @@ const ReceiptPanel = () => {
                           variant="ghost"
                           size="icon-sm"
                           aria-label={`Decrease ${item.name} quantity`}
-                          className="rounded-md"
+                          className="h-7 w-7 p-0 rounded hover:bg-muted"
                         >
-                          <Minus size={14} />
+                          <Minus size={12} />
                         </Button>
-                        <span className="w-6 text-center text-sm font-semibold text-foreground">
+                        <span className="w-5 text-center text-xs font-semibold text-foreground">
                           {item.quantity}
                         </span>
                         <Button
@@ -283,9 +295,9 @@ const ReceiptPanel = () => {
                           variant="ghost"
                           size="icon-sm"
                           aria-label={`Increase ${item.name} quantity`}
-                          className="rounded-md"
+                          className="h-7 w-7 p-0 rounded hover:bg-muted"
                         >
-                          <Plus size={14} />
+                          <Plus size={12} />
                         </Button>
                       </div>
                       <Button
@@ -295,9 +307,9 @@ const ReceiptPanel = () => {
                         variant="ghost"
                         size="icon-sm"
                         aria-label={`Remove ${item.name} from receipt`}
-                        className="text-muted-foreground hover:text-destructive"
+                        className="h-7 w-7 p-0 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={14} />
                       </Button>
                     </div>
                   </div>
@@ -308,8 +320,8 @@ const ReceiptPanel = () => {
         )}
       </div>
 
-      <div className="border-t border-border bg-muted/30 p-6">
-        <div className="mb-6 space-y-3 text-sm">
+      <div className="border-t border-border bg-muted/30 p-3">
+        <div className="mb-4 space-y-2 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>Subtotal</span>
             <span>{formatPaisa(subtotalPaisa)}</span>
@@ -324,7 +336,7 @@ const ReceiptPanel = () => {
             </span>
             <span>{formatPaisa(taxPaisa)}</span>
           </div>
-          <div className="flex justify-between border-t border-border pt-3 text-lg font-bold text-foreground">
+          <div className="flex justify-between border-t border-border pt-2 text-base font-bold">
             <span>Total</span>
             <span>{formatPaisa(totalPaisa)}</span>
           </div>
@@ -340,7 +352,7 @@ const ReceiptPanel = () => {
             !taxSettingsQuery.data
           }
           size="lg"
-          className="h-auto w-full rounded-xl px-4 py-4 text-base shadow-sm transition-transform active:scale-[0.98]"
+          className="w-full rounded-lg px-4 py-3 text-base shadow-sm transition-transform active:scale-[0.98]"
         >
           {isPrinting ? (
             <>
@@ -355,12 +367,12 @@ const ReceiptPanel = () => {
           )}
         </Button>
         {checkoutError && (
-          <p role="alert" className="mt-3 text-sm text-destructive">
+          <p role="alert" className="mt-2 text-xs text-destructive">
             {checkoutError}
           </p>
         )}
         {taxSettingsQuery.isError && (
-          <Alert variant="destructive" className="mt-3">
+          <Alert variant="destructive" className="mt-2">
             <CircleAlert aria-hidden="true" />
             <AlertTitle>Cannot load tax settings</AlertTitle>
             <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
@@ -382,7 +394,7 @@ const ReceiptPanel = () => {
         {printError && (
           <div
             role="alert"
-            className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-destructive"
+            className="mt-2 flex items-start justify-between gap-2 text-sm text-destructive"
           >
             <p>{printError}</p>
             <Button
@@ -397,7 +409,7 @@ const ReceiptPanel = () => {
           </div>
         )}
         {currentSessionQuery.isLoading && (
-          <p className="mt-3 text-sm text-muted-foreground" role="status">
+          <p className="mt-2 text-xs text-muted-foreground">
             Checking cashier session…
           </p>
         )}
@@ -428,11 +440,11 @@ const ReceiptPanel = () => {
               <CircleAlert aria-hidden="true" />
               <AlertTitle>Cashier session required</AlertTitle>
               <AlertDescription>
-                Open a cashier session with the “Open session” button in the
-                top bar to enable checkout and receipt printing.
+                Open a cashier session with the “Open session” button in the top
+                bar to enable checkout and receipt printing.
               </AlertDescription>
             </Alert>
-        )}
+          )}
       </div>
 
       {receiptToPrint && (

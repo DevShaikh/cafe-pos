@@ -1,4 +1,4 @@
-# Cafe POS — Project Status and Technical Roadmap
+﻿# Cafe POS â€” Project Status and Technical Roadmap
 
 **Status basis:** Current repository source, the existing consolidated audit, and targeted implementation/build/smoke checks
 **Last reviewed:** 2026-11-01
@@ -18,7 +18,7 @@ Cafe POS is a local, single-cashier point-of-sale application intended to run on
 - **Client state/data:** Zustand stores the cart and older locally persisted receipts; TanStack Query manages API queries and mutations; Axios is used by client services.
 - **Desktop:** Electron now has a Windows NSIS packaging path that bundles a Node runtime, starts the packaged Next.js client and Express API on loopback, and stores the database, product photos, and generated JWT secret under the app's per-user data directory. An isolated Chromium test against these packaged local services verified setup, login, rejected credentials, and session persistence after refresh. Final installer and Windows installation acceptance remain incomplete.
 - **API boundaries:** Browser requests go through HTTP and the Next.js proxy to Express. Client code must not access Prisma or SQLite directly.
-- **Server organization:** Routes → controllers → services → Prisma. Prisma schema is split across `server/prisma/schema/`, with migration history under `server/prisma/migrations/`.
+- **Server organization:** Routes â†’ controllers â†’ services â†’ Prisma. Prisma schema is split across `server/prisma/schema/`, with migration history under `server/prisma/migrations/`.
 
 Treat the current source and this status document as the implementation references. Older supporting docs are absent from the current worktree; verify behavior against source rather than relying on prior summaries.
 
@@ -72,10 +72,10 @@ The following are supported by current source; test and browser evidence is date
 
 1. **PowerShell cookie-session discrepancy:** The PowerShell web-session smoke test did not preserve the production `Secure` loopback cookie and its next `/auth/me` request returned 401. This was not reproduced in Chromium against the packaged local services: first-run setup, invalid-credential rejection, valid login, and session persistence after refresh all passed. No cookie-security setting was weakened. Confirm native Electron-window behavior during Windows installation acceptance.
 2. **Login throttling is process-local:** Setup and login use an in-memory per-IP request limit. This is proportionate for the single-process local app, but it resets on restart and is not a durable lockout policy.
-3. **Migration compatibility (Destructive Products Migration):** `20261026175721_add_pos_core_models` contains a destructive Products table operation: DROP TABLE then CREATE TABLE. The Electron migration guard (`assertSafeMigrationState()`) checks `_prisma_migrations` metadata and avoids applying migrations to unrecognized databases, creating a safety backup for recognized upgrades. Guard protects against reapplication but does not guarantee safe upgrade—migration compatibility must be verified on a copy containing representative data. Existing customer database upgrade behavior has not been rehearsed; preserve migration history and test only on copies.
-4. **Backup recovery (Implemented but Unverified End-to-End):** Utility-level backup creation and inspection succeeded using better-sqlite3 binary copy with journal-mode rollback. Restoration, rollback from failed restore, and full application recovery have not been exercised end-to-end in production workflow. User reported runtime error during attempted restore; root cause requires investigation (see section "Database Backup & Restore — Known Issue").
+3. **Migration compatibility (Destructive Products Migration):** `20261026175721_add_pos_core_models` contains a destructive Products table operation: DROP TABLE then CREATE TABLE. The Electron migration guard (`assertSafeMigrationState()`) checks `_prisma_migrations` metadata and avoids applying migrations to unrecognized databases, creating a safety backup for recognized upgrades. Guard protects against reapplication but does not guarantee safe upgradeâ€”migration compatibility must be verified on a copy containing representative data. Existing customer database upgrade behavior has not been rehearsed; preserve migration history and test only on copies.
+4. **Backup recovery (Implemented but Unverified End-to-End):** Utility-level backup creation and inspection succeeded using better-sqlite3 binary copy with journal-mode rollback. Restoration, rollback from failed restore, and full application recovery have not been exercised end-to-end in production workflow. User reported runtime error during attempted restore; root cause requires investigation (see section "Database Backup & Restore â€” Known Issue").
 
-### Database Backup & Restore — Documentation Gaps
+### Database Backup & Restore â€” Documentation Gaps
   - **Backup retention policy:** No documented retention schedule (e.g., daily weekly, off-site copy). Backups must be kept outside the POS computer and on separate media.
   - **Stand-alone restore workflow:** Restore is available via desktop UI but lacks step-by-step runbook, timing requirements, and verification checklist.
   - **Recovery documentation requirements:** Recovery guide should cover: backup location identification, integrity verification, database replacement procedure, application restart, and post-restore data validation against known backups.
@@ -83,7 +83,7 @@ The following are supported by current source; test and browser evidence is date
 ### Migration Guard Behavior and Limitations
   - **Guard mechanism:** `assertSafeMigrationState()` verifies `_prisma_migrations` metadata exists before allowing migration application.
   - **Protection scope:** Guards prevent reapplication of migrations to databases already tracked in metadata.
-  - **Limitation:** Guard does not validate that migration SQL compatibility with existing data is safe—only that migration hasn't already been applied.
+  - **Limitation:** Guard does not validate that migration SQL compatibility with existing data is safeâ€”only that migration hasn't already been applied.
   - **Recovery risk if guard bypassed:** Without intact `_prisma_migrations` table or corrupted metadata, migrations may be reapplied unconditionally, risking destructive operations on existing customer data.
   - **Metadata backup recommendation:** Migration metadata and schema history should be backed up alongside the SQLite database.
 
@@ -134,7 +134,7 @@ The following are supported by current source; test and browser evidence is date
 - Zod request schemas and a shared `AppError`/error middleware.
 - Transactional server order/payment flows, integer paisa, product snapshots, receipt counters, audit events, and idempotency support.
 - Existing dependency choices (Next/React, Express, Prisma/SQLite, Zod, TanStack Query, Zustand, Axios, bcryptjs, JWT, Radix/shadcn, `react-to-print`, Electron) are generally aligned with current features. Avoid replacing them without a concrete need.
-- Node’s built-in `node:test` runner is already used; no additional test framework is necessary to increase server coverage.
+- Nodeâ€™s built-in `node:test` runner is already used; no additional test framework is necessary to increase server coverage.
 
 ### Maintenance items
 
@@ -146,11 +146,11 @@ The following are supported by current source; test and browser evidence is date
 - `shadcn` is declared as a production client dependency despite mainly being tooling, but global CSS imports it; change classification only after verifying builds.
 - A prior dependency audit snapshot dated 2026-11-01 reported advisory matches: root 1 high; client 3 high, 20 moderate, 2 low; server 1 high, 12 moderate. High matches included Electron 44.9.0, `body-parser` 2.3.0, `follow-redirects` 1.16.1, and `systeminformation` 5.33.15. This is a time-bound advisory scan, not proof of exploitability. Re-run a fresh audit before deployment.
 - README documents Node 22.12+ for development/build tooling; the desktop installer bundles Node 24.18.0 for its packaged services. Validate this support matrix on clean Windows 10/11 machines before release.
-- Older Stage 1–7 reports are no longer in the audit directory; their consolidated findings are retained in `project-audit/FINAL-PROJECT-AUDIT.md`. Do not rely on their obsolete implementation examples.
+- Older Stage 1â€“7 reports are no longer in the audit directory; their consolidated findings are retained in `project-audit/FINAL-PROJECT-AUDIT.md`. Do not rely on their obsolete implementation examples.
 
 ## Performance considerations for one computer
 
-- Local SQLite, Prisma, and a single cashier’s write pattern are suitable; no PostgreSQL, Redis, Kubernetes, cloud hosting, or microservices are warranted for the current scope.
+- Local SQLite, Prisma, and a single cashierâ€™s write pattern are suitable; no PostgreSQL, Redis, Kubernetes, cloud hosting, or microservices are warranted for the current scope.
 - Order history uses cursor pagination, displaying 10 combined server/device receipts at a time; the API fetches cursor pages of 20 server orders. Device-only receipts are filtered locally by receipt number. Reports aggregate server data.
 - Catalog is currently unpaginated and loads all products; client-side name search is adequate for a typical cafe menu, but no benchmark was run. Measure before considering FTS or indexing.
 - Existing indexes include unique receipt number and register-session staff/status and opened-time indexes. No explicit indexes were identified for common order-date/paid-date report queries. Add indexes only after checking real SQLite query plans or observed slowdown.
@@ -158,15 +158,16 @@ The following are supported by current source; test and browser evidence is date
 
 ## Testing status
 
-- Only discovered test file: `server/src/app.test.ts`, using Node’s built-in runner.
+- Only discovered test file: `server/src/app.test.ts`, using Nodeâ€™s built-in runner.
 - Current test cases cover health success/failure, a Helmet header, configured CORS, unknown-route JSON, malformed JSON, masking unexpected errors, product-filter validation, unavailable-product filtering, category authentication/creation/rename/deletion safeguards, and product creation/availability updates.
 - **Verified 2026-11-01:** `npm run lint`, `npm run typecheck`, `npm run test` (9 passing), and `npm run build` passed. Production-browser checks covered login validation/rejection/success/session persistence, catalog search/category/empty-state behavior, and order/report filter controls.
 - **Verified 2026-11-01 follow-up:** `npm run lint --prefix client`, `npm run typecheck --prefix client`, and `npm run build --prefix client` passed after the login OTP, Orders layout, and session guidance changes. Browser checks covered login button state and masked PIN at desktop/mobile sizes, invalid-credential feedback, Orders layout at 900px, and the closed-session checkout notice. Sidebar checks with stubbed staff/session data confirmed the favicon logo, active navigation, staff/role/session details, and expanded, collapsed, and mobile drawer layouts. These browser tests used a stubbed API for UI states and were not a new successful-authentication integration test.
 - **Verified 2026-11-07:** Server tests passed (15/15); server/client lint, server/client TypeScript checks, and both production builds passed. Prisma schema validation passed. `npm run db:migrate --prefix server` applied the full migration history, including the new menu-category migration, to a fresh temporary SQLite database; a separate in-memory SQLite fixture verified category data, case variants, and uncategorized products are backfilled. The new `/products` route and sidebar link rendered in-browser with mocked authentication. Full interactive browser validation was not completed because the local API was unavailable and browser interception was inconsistent; the authenticated API operations were covered by server tests.
 - **Search, pagination, and table verification:** Server tests passed (17/17), including assertions that order search scopes both returned orders and unpaid counts, and expense search scopes descriptions, notes, and aggregates. Client/server TypeScript checks and production builds passed; server lint passed. Browser checks confirmed both history tables render their headers and rows, search returns filtered results/counts, and clearing expense search restores the unfiltered 10-entry page. At a 390px viewport, both tables remain in horizontally scrollable containers and the unpaid payment action remains available. Orders and the shadcn Table primitive pass targeted lint; linting Expenses with its existing `react-hooks/set-state-in-effect` finding suppressed also passes. Full client lint remains blocked by that pre-existing rule at `expenses/page.tsx`, where the mount effect initializes the local date-time field.
-- **Windows release-preparation verification (2026-11-01):** Server lint/typecheck, client typecheck, targeted lint for changed client files, and server tests passed (17/17). A fresh temporary SQLite database received all eight migrations and passed `PRAGMA integrity_check`; a standalone backup utility smoke test created and inspected a backup copy. `npm run build:desktop` passed. The staged packaged client/API started in an isolated profile. Chromium verified initial administrator setup, rejected an incorrect PIN with “Invalid credentials,” accepted the correct PIN, and remained authenticated after a page refresh. The PowerShell cookie-container 401 was not reproduced in Chromium. The final `npm run package:win` rebuild completed successfully and generated `artifacts/Cafe-POS-Setup-2026.11.1.exe`; `afterPack` dependencies and staged app entries were present. The installer remains unsigned.
+- **Windows release-preparation verification (2026-11-01):** Server lint/typecheck, client typecheck, targeted lint for changed client files, and server tests passed (17/17). A fresh temporary SQLite database received all eight migrations and passed `PRAGMA integrity_check`; a standalone backup utility smoke test created and inspected a backup copy. `npm run build:desktop` passed. The staged packaged client/API started in an isolated profile. Chromium verified initial administrator setup, rejected an incorrect PIN with â€œInvalid credentials,â€ accepted the correct PIN, and remained authenticated after a page refresh. The PowerShell cookie-container 401 was not reproduced in Chromium. The final `npm run package:win` rebuild completed successfully and generated `artifacts/Cafe-POS-Setup-2026.11.1.exe`; `afterPack` dependencies and staged app entries were present. The installer remains unsigned.
 - **Known release blockers:** Backup restore/rollback was not exercised end to end; no actual 58mm/80mm printer was tested; installer install/upgrade/restart persistence is unverified; installer signing and a custom icon are absent. `npm run lint` still fails on the pre-existing Expenses `react-hooks/set-state-in-effect` finding. Package audit findings were reported by dependency installation (root: 15 moderate, 1 high; server: 12 moderate, 1 high; staged production server: 1 moderate, 1 high); no audit remediation was attempted.
 - **Tax settings implementation (2026-11-01):** Added authenticated, audit-logged tax settings and a persistent enable/disable flag. Checkout estimates, server order totals, and printed receipts use the saved configuration. A migration was generated; although a prior run reported it applied, current inspection found the local database has the tax column but no `_prisma_migrations` table, and Prisma reports all eight migrations as pending. Do not run the migrations against this database until its history is reconciled safely.
+- **Order Type Visibility Toggle implementation (2026-11-08):** Database migration `20261108140000_add_order_type_tracking` added `orderTypeVisibilityEnabled` column to Settings table. Receipt panel conditionally renders Dine-in/Takeaway buttons when `orderTypeVisibilityEnabled` is true (default is now false). Settings page includes toggle UI with persistent state via form submission. All TypeScript errors resolved; build succeeds.
 - **Power-loss recovery verification (2026-11-01):** Restored NUL-corrupted README/settings UI files and missing settings query/controller/service files from the last clean settings implementation; order creation now snapshots an effective zero tax rate when tax is disabled. A source scan found no remaining NUL bytes in text files. Client/server typechecks and production builds plus Prisma schema validation passed. Server tests reported 16/17 passing; the existing order-search assertion failed because the mocked `where` was `{}` instead of the expected receipt-number filter. No browser validation was run.
 - **Demo seed recovery:** `server/seeds/demo.ts` was restored from the latest repository session checkpoint after a NUL-byte-corrupted file caused esbuild's `Unexpected "\x00"` parse error. The seed uses deterministic IDs, preserves existing cafe data, and skips fixtures already inserted.
 - **Expense tracking implementation:** Prisma client regeneration completed and `npm run db:migrate --prefix server` applied the additive expense migration to the local SQLite database. Expense-specific tests, type checks, lint, production build, and browser interaction were not run for this change.
@@ -187,7 +188,7 @@ Continue to treat current source as authoritative for behavior. Use this documen
 
 ## Prioritized roadmap
 
-### Phase 1 — Protect access and records before real operation
+### Phase 1 â€” Protect access and records before real operation
 
 1. Rebuild a clean installer after the dependency-copy hook and validate installation, startup, first-run setup, login, session persistence, clean exit, and restart on Windows 10/11.
 2. Exercise backup and restore end to end on isolated test data, including product photos, invalid backup rejection, pre-restore safety copy, and recovery after restoring.
@@ -195,13 +196,13 @@ Continue to treat current source as authoritative for behavior. Use this documen
 4. Review the destructive products migration against copied databases and rehearse legacy-data protection/upgrade behavior without rewriting committed migration history.
 5. Add focused automated coverage for initial setup, login limiting, order creation/totals, payment, idempotency, sessions, and restore safety.
 
-### Phase 2 — Improve daily cashier operations
+### Phase 2 â€” Improve daily cashier operations
 
 1. Resolve the pre-existing client lint finding in Expenses and rerun the complete verification suite.
 2. Review dependency audit findings before release and record whether any updates are safely applicable.
 3. Decide whether expense correction (editing or reversal entries) is needed; expense records currently support creation and review only.
 
-### Phase 3 — Optional, evidence-led polish
+### Phase 3 â€” Optional, evidence-led polish
 
 1. Add request IDs and simple local log retention if support needs justify it.
 2. Add indexes or search optimization only after measuring representative local data.
@@ -215,9 +216,9 @@ Continue to treat current source as authoritative for behavior. Use this documen
 
 ---
 
-### ✅ FIXED ISSUES (VERIFIED AND READY FOR RELEASE)
+### âœ… FIXED ISSUES (VERIFIED AND READY FOR RELEASE)
 
-#### Issue #1: Restore Runtime Error — VERIFIED ✅
+#### Issue #1: Restore Runtime Error â€” VERIFIED âœ…
 
 **Resolved in commit:** `2f1e5ec`  
 **Verified:** 2026-11-02 via automated test suite  
@@ -234,16 +235,16 @@ Continue to treat current source as authoritative for behavior. Use this documen
 **Files modified:** `electron/main.cjs` (lines 501-683, ~136 additions)
 
 **Test suite results:** See `docs/restore-testing-results.md` for complete test documentation. The automated test suite covers:
-- ✅ Valid restore with clean database → succeeds normally
-- ✅ Corrupted backup handling → graceful failure with user-friendly error
-- ✅ Missing source file → clear error message guiding user to try different backup
-- ✅ Cleanup on failure → staging directory always removed via finally block
+- âœ… Valid restore with clean database â†’ succeeds normally
+- âœ… Corrupted backup handling â†’ graceful failure with user-friendly error
+- âœ… Missing source file â†’ clear error message guiding user to try different backup
+- âœ… Cleanup on failure â†’ staging directory always removed via finally block
 
 **Status:** Code committed, tests verified. Ready for production use.
 
 ---
 
-#### Issue #3: Session Cookie Clearing on Startup — FIXED ✅
+#### Issue #3: Session Cookie Clearing on Startup â€” FIXED âœ…
 
 **Resolved in commit:** `96caaaa` (fix: remove automatic session cookie clearing on Electron startup)
 
@@ -260,19 +261,19 @@ Continue to treat current source as authoritative for behavior. Use this documen
 - SQLite order/payment data unaffected
 
 **Testing required:**
-- [ ] Restart app → verify logged-in state persists
-- [ ] Logout via UI button → verify session ends correctly
+- [ ] Restart app â†’ verify logged-in state persists
+- [ ] Logout via UI button â†’ verify session ends correctly
 
 **Status:** Code committed. Awaiting user verification of persistence behavior.
 
 ---
 
-### 🚧 ISSUES NEEDING ATTENTION
+### ðŸš§ ISSUES NEEDING ATTENTION
 
-#### ✅ ISSUE #2: DESTRUCTIVE MIGRATION GUARD — RESOLVED ✅
+#### âœ… ISSUE #2: DESTRUCTIVE MIGRATION GUARD â€” RESOLVED âœ…
 
 **Resolved date:** 2026-11-02  
-**Risk level:** HIGH — Resolved before introducing real catalog data  
+**Risk level:** HIGH â€” Resolved before introducing real catalog data  
 **Severity:** Data integrity protection  
 
 **Changes implemented:**
@@ -299,31 +300,31 @@ The migration guard in `electron/main.cjs` has been enhanced to:
 
 ---
 
-#### Issue #4: Backup/Restore Recovery Runbook — COMPLETED ✅
+#### Issue #4: Backup/Restore Recovery Runbook â€” COMPLETED âœ…
 
 **Created:** 2026-11-02  
 **Location:** `docs/backup-restore-runbook.md`
 
 **Scope completed:**
-- ✅ Retention schedule and storage locations documented
-- ✅ Pre-backup integrity checks defined
-- ✅ Backup creation procedure (manual via desktop UI) explained
-- ✅ Restore workflow from failed disk to safety copy documented
-- ✅ Post-restore validation checklist included
-- ✅ Migration guard behavior and limitations documented
-- ✅ Recovery escalation path outlined
+- âœ… Retention schedule and storage locations documented
+- âœ… Pre-backup integrity checks defined
+- âœ… Backup creation procedure (manual via desktop UI) explained
+- âœ… Restore workflow from failed disk to safety copy documented
+- âœ… Post-restore validation checklist included
+- âœ… Migration guard behavior and limitations documented
+- âœ… Recovery escalation path outlined
 
 **Dependencies satisfied:**
-- Issue #1 restore error handling implemented → lessons captured in runbook
+- Issue #1 restore error handling implemented â†’ lessons captured in runbook
 - Runbook created alongside fix implementation (not blocked on Issue #2)
 
 **Status:** Documentation complete. Ready for use by users.
 
 ---
 
-### 🚧 ISSUES NEEDING ATTENTION
+### ðŸš§ ISSUES NEEDING ATTENTION
 
-**Risk level:** MEDIUM — Debuggability and consistency  
+**Risk level:** MEDIUM â€” Debuggability and consistency  
 **Severity:** Operational efficiency  
 
 **Current issues:**
@@ -332,9 +333,9 @@ The migration guard in `electron/main.cjs` has been enhanced to:
 - Inconsistent client feedback messages across screens
 
 **Files to modify:**
-- `server/src/error-handler.ts` → parser error classification
-- Various controller files → consistent 4xx codes for validation failures
-- Client UI components → standardized logout/print failure messages
+- `server/src/error-handler.ts` â†’ parser error classification
+- Various controller files â†’ consistent 4xx codes for validation failures
+- Client UI components â†’ standardized logout/print failure messages
 
 **Status:** Not implemented. Lower priority; can address in release prep phase.
 
@@ -344,7 +345,7 @@ The migration guard in `electron/main.cjs` has been enhanced to:
 
 1. **Phase 1 (COMPLETE):** Restore error handling fixes implemented and tested by user
 2. **Phase 2 (COMPLETED):** Session cookie clearing fixed via commit `96caaaa`
-3. **Phase 3:** Migration guard enhancement — review runbook requirements first
+3. **Phase 3:** Migration guard enhancement â€” review runbook requirements first
 4. **Phase 4:** Create backup runbook documenting retention, restore workflow, migration guard docs
 5. **Phase 5:** Error handling improvements during release prep
 
@@ -355,11 +356,11 @@ The migration guard in `electron/main.cjs` has been enhanced to:
 ## Success Criteria
 
 After implementing all fixes:
-- ✅ Restore operations have detailed error logging and rollback verification (#1 - DONE)
-- ⏳ Session persists across restarts or documented intentional clearing (#2 - DONE)
-- ⏳ Migration guard warns about data loss and validates row counts (#3 - PENDING)
-- ⏳ Backup runbook exists with retention policy and recovery steps (#4 - PENDING)
-- 📋 Parser errors classified correctly with consistent feedback (#5 - DEFERRED)
+- âœ… Restore operations have detailed error logging and rollback verification (#1 - DONE)
+- â³ Session persists across restarts or documented intentional clearing (#2 - DONE)
+- â³ Migration guard warns about data loss and validates row counts (#3 - PENDING)
+- â³ Backup runbook exists with retention policy and recovery steps (#4 - PENDING)
+- ðŸ“‹ Parser errors classified correctly with consistent feedback (#5 - DEFERRED)
 
 ---
 
@@ -473,3 +474,4 @@ graph TD
 ## Next task after fixes complete
 
 Exercise restore on isolated data. Backup creation and integrity inspection passed, but restore, product-photo recovery, pre-restore safety copy, and rollback remain unverified. Use isolated temporary data and verify restored orders/settings/photos before any real cafe data is at risk.
+
