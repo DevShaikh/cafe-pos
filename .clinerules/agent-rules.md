@@ -2,6 +2,7 @@
 
 ## 1. CRITICAL FORMATTING & TOOL CALLS
 
+- NO MULTIPLE TOOL CALLS AT ONCE: Execute one tool at a time, wait for the result, then evaluate before proceeding.
 - Always output valid tool call XML structures immediately.
 - DO NOT wrap tool calls in preambles, pleasantries, or explanations.
 - Keep responses strictly technical and concise to preserve token space.
@@ -16,6 +17,7 @@
 
 ## 3. CORE CODEBASE SAFETY LAWS
 
+- EXACT MATCH: When editing a file, never rewrite the entire file from scratch unless authorized. Use search/replace blocks to modify only the necessary lines.
 - ENFORCE TYPE SAFETY: Do not use 'any' types. Always extend or implement types from `client/src/types/` or `server/src/schemas/`.
 - MONOREPO FOCUS: When executing terminal commands or installing dependencies, always ensure you target the correct directory (`--prefix client` or `--prefix server`).
 - DB CHANGES: If modifying the Prisma schema, always generate a migration (`npm run db:migrate --prefix server`) and update the seeds if necessary.
