@@ -1,22 +1,317 @@
-# Backup and Restore Recovery Runbook
+# Cafe POS — Backup and Restore Runbook
 
-**Document version:** 1.0  
-**Last updated:** 2026-11-02  
-**Maintained by:** Development team  
+**Version:** 1.0  
+**Last Updated:** 2026-11-05  
+**Owner:** AI Agent
+
+---
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Backup Procedures](#backup-procedures)
+3. [Restore Procedures](#restore-procedures)
+4. [Retention Policy](#retention-policy)
+5. [Validation Checklists](#validation-checklists)
+6. [Emergency Recovery](#emergency-recovery)
+7. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Overview
 
-This runbook provides complete procedures for backing up and restoring the Cafe POS application data, including SQLite databases, product photos, and Prisma migration metadata. It also documents the backup retention policy, recovery workflow, and post-restore validation checklist.
+This runbook provides step-by-step instructions for backing up and restoring the Cafe POS SQLite database. It includes PowerShell scripts, manual procedures, and validation checklists to ensure data integrity.
 
-### Protected Data Assets
+### Database Location
 
-| Asset | Location | Purpose |
-|-------|----------|---------|
-| **SQLite database** | `server/data/cafe-pos.db` | Orders, products, categories, expenses, settings, audit logs |
-| **Product photos** | `server/data/product-images/` | Product thumbnails and category images |
-| **Migration metadata** | Embedded in SQLite `_prisma_migrations` table | Tracks applied migrations for safety guards |
+- **Path:** `data/cafe-pos.db`
+- **Format:** SQLite 3
+- **Size:** Typically 10-50 MB (varies with product catalog size)
+
+---
+
+## Backup Procedures
+
+### Method 1: PowerShell Script (Recommended for Automation)
+
+#### Prerequisites
+- Windows PowerShell 5.0+
+- Administrator privileges (if needed for file access)
+
+#### Script: `backup-database.ps1`
+
+```powershell
+# Cafe POS Database Backup Script
+# Usage: .\backup-database.ps1 -Source "data/cafe-pos.db" -Destination "backups/"
+
+param(
+    [string]$Source = "data/cafe-pos.db",
+    [string]$Destination = "backups",
+    [string]$BackupName = "cafe-pos-backup",
+    [switch]$Compress,
+    [switch]$Verify
+)
+
+# Configuration
+$Timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$BackupFile = Join-Path $Destination "$BackupName-$Timestamp.db"
+$LogFile = Join-Path $Destination "$BackupName-$Timestamp.log"
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Cafe POS Database Backup" -ForegroundColor Cyan
+Write-Host "Started: $(Get-Date)" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+
+# Create backup directory if it doesn't exist
+if (-not (Test-Path $Destination)) {
+    New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+    Write-Host "[INFO] Created backup directory: $Destination" -ForegroundColor Green
+}
+
+# Check source file exists
+if (-not (Test-Path $Source)) {
+    Write-Host "[ERROR] Source database not found: $Source" -ForegroundColor Red
+    exit 1
+}
+
+$SourceSize = (Get-Item $Source).Length / 1MB
+Write-Host "[INFO] Source database size: $([math]::Round($SourceSize, 2)) MB" -ForegroundColor Yellow
+
+# Perform backup using SQLite command line
+Write-Host "[INFO] Creating backup..." -ForegroundColor Yellow
+$BackupCommand = "sqlite3 `"$Source`" ".backup `"$BackupFile`""
+
+try {
+    & $BackupCommand
+    Write-Host "[SUCCESS] Backup created: $BackupFile" -ForegroundColor Green
+} catch {
+    Write-Host "[ERROR] Backup failed: $_" -ForegroundColor Red
+    exit 1
+}
+
+# Verify backup integrity if requested
+if ($Verify) {
+    Write-Host "[INFO] Verifying backup integrity..." -ForegroundColor Yellow
+    $VerifyCommand = "sqlite3 `"$BackupFile`" ".integrity_check"
+    try {
+        $IntegrityResult = & $VerifyCommand 2>&1
+        if ($IntegrityResult -match "^ok$") {
+            Write-Host "[SUCCESS] Backup integrity verified" -ForegroundColor Green
+        } else {
+            Write-Host "[WARNING] Integrity check returned: $IntegrityResult" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "[ERROR] Verification failed: $_" -ForegroundColor Red
+    }
+}
+
+# Compress backup if requested
+if ($Compress) {
+    Write-Host "[INFO] Compressing backup..." -ForegroundColor Yellow
+    $ZipFile = "$BackupFile.zip"
+    Compress-Archive -Path $BackupFile -DestinationPath $ZipFile -Force
+    Write-Host "[SUCCESS] Backup compressed: $ZipFile" -ForegroundColor Green
+}
+
+# Cleanup old backups (keep last 7 days)
+Write-Host "[INFO] Cleaning up old backups..." -ForegroundColor Yellow
+$OldBackups = Get-ChildItem -Path $Destination -Filter "*.db" | Where-Object {
+    $_.LastWriteTime -lt (Get-Date).AddDays(-7)
+} | Sort-Object LastWriteTime -Descending
+
+foreach ($OldBackup in $OldBackups) {
+    Remove-Item $OldBackup.FullName
+    Write-Host "[INFO] Removed old backup: $($OldBackup.Name)" -ForegroundColor Gray
+}
+
+$BackupSize = (Get-Item $BackupFile).Length / 1MB
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Backup Complete" -ForegroundColor Cyan
+Write-Host "Finished: $(Get-Date)" -ForegroundColor Cyan
+Write-Host "Backup file: $BackupFile" -ForegroundColor Cyan
+Write-Host "Backup size: $([math]::Round($BackupSize, 2)) MB" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+```
+
+#### How to Run
+
+```powershell
+# Navigate to script directory
+cd path\to\scripts
+
+# Run backup (default settings)
+.\backup-database.ps1
+
+# Run with compression
+.\backup-database.ps1 -Compress
+
+# Run with verification
+.\backup-database.ps1 -Verify
+
+# Custom destination
+.\backup-database.ps1 -Destination "D:\Backups\CafePOS"
+```
+
+### Method 2: Manual Copy (Quick Backup)
+
+#### Steps
+
+1. **Close the Cafe POS application** to ensure no active connections
+2. **Navigate to the data directory:**
+   ```
+   C:\path\to\cafe-pos\data\
+   ```
+3. **Copy the database file:**
+   - Source: `cafe-pos.db`
+   - Destination: External drive or backup folder
+4. **Verify the copy** by checking file size matches
+
+#### PowerShell One-Liner
+
+```powershell
+Copy-Item "data/cafe-pos.db" "D:\Backups\CafePOS\" -Force
+```
+
+---
+
+## Restore Procedures
+
+### Method 1: PowerShell Script (Recommended)
+
+#### Script: `restore-database.ps1`
+
+```powershell
+# Cafe POS Database Restore Script
+# Usage: .\restore-database.ps1 -Source "backups/cafe-pos-backup-20261105_120000.db" -Destination "data/"
+
+param(
+    [string]$Source,
+    [string]$Destination = "data",
+    [switch]$Force,
+    [switch]$VerifyAfter
+)
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Cafe POS Database Restore" -ForegroundColor Cyan
+Write-Host "Started: $(Get-Date)" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+
+# Check source file exists
+if (-not (Test-Path $Source)) {
+    Write-Host "[ERROR] Backup file not found: $Source" -ForegroundColor Red
+    exit 1
+}
+
+$SourceSize = (Get-Item $Source).Length / 1MB
+Write-Host "[INFO] Source backup size: $([math]::Round($SourceSize, 2)) MB" -ForegroundColor Yellow
+
+# Check destination directory
+if (-not (Test-Path $Destination)) {
+    Write-Host "[ERROR] Destination directory not found: $Destination" -ForegroundColor Red
+    exit 1
+}
+
+$ExistingDb = Join-Path $Destination "cafe-pos.db"
+
+if (Test-Path $ExistingDb) {
+    $ExistingSize = (Get-Item $ExistingDb).Length / 1MB
+    Write-Host "[WARNING] Existing database found: $ExistingDb ($([math]::Round($ExistingSize, 2)) MB)" -ForegroundColor Yellow
+    
+    if (-not $Force) {
+        $Response = Read-Host "This will overwrite the existing database. Continue? (y/n)"
+        if ($Response -ne "y") {
+            Write-Host "[INFO] Restore cancelled by user" -ForegroundColor Yellow
+            exit 0
+        }
+    }
+    
+    Remove-Item $ExistingDb -Force
+    Write-Host "[INFO] Removed existing database" -ForegroundColor Gray
+}
+
+# Perform restore
+Write-Host "[INFO] Restoring database..." -ForegroundColor Yellow
+Copy-Item $Source $ExistingDb -Force
+
+$RestoredSize = (Get-Item $ExistingDb).Length / 1MB
+Write-Host "[SUCCESS] Database restored: $([math]::Round($RestoredSize, 2)) MB" -ForegroundColor Green
+
+# Verify integrity if requested
+if ($VerifyAfter) {
+    Write-Host "[INFO] Verifying restored database..." -ForegroundColor Yellow
+    $VerifyCommand = "sqlite3 `"$ExistingDb`" ".integrity_check"
+    try {
+        $IntegrityResult = & $VerifyCommand 2>&1
+        if ($IntegrityResult -match "^ok$") {
+            Write-Host "[SUCCESS] Database integrity verified" -ForegroundColor Green
+        } else {
+            Write-Host "[ERROR] Integrity check failed: $IntegrityResult" -ForegroundColor Red
+            exit 1
+        }
+    } catch {
+        Write-Host "[ERROR] Verification failed: $_" -ForegroundColor Red
+        exit 1
+    }
+}
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Restore Complete" -ForegroundCo
+Write-Host "[SUCCESS] Database restored: $([math]::Round($RestoredSize, 2)) MB" -ForegroundColor Green
+
+# Verify integrity if requested
+if ($VerifyAfter) {
+    Write-Host "[INFO] Verifying restored database..." -ForegroundColor Yellow
+    $VerifyCommand = "sqlite3 `"$ExistingDb`" \".integrity_check\""
+    try {
+        $IntegrityResult = & $VerifyCommand 2>&1
+        if ($IntegrityResult -match "^ok$") {
+            Write-Host "[SUCCESS] Database integrity verified" -ForegroundColor Green
+        } else {
+            Write-Host "[ERROR] Integrity check failed: $IntegrityResult" -ForegroundColor Red
+            exit 1
+        }
+    } catch {
+        Write-Host "[ERROR] Verification failed: $_" -ForegroundColor Red
+        exit 1
+    }
+}
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Restore Complete" -ForegroundColor Cyan
+Write-Host "Finished: $(Get-Date)" -ForegroundColor Cyan
+Write-Host "Database: $ExistingDb" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+```
+
+#### How to Run
+
+```powershell
+# Navigate to script directory
+cd path\to\scripts
+
+# Restore with verification (RECOMMENDED)
+.\restore-database.ps1 -Source "backups/cafe-pos-backup-20261105_120000.db" -VerifyAfter
+
+# Force restore without confirmation
+.\restore-database.ps1 -Source "backups/latest.db" -Force
+```
+
+### Method 2: Manual Restore
+
+#### Steps
+
+1. **Close the Cafe POS application** completely
+2. **Navigate to the data directory:**
+   ```
+   C:\path\to\cafe-pos\data\
+   ```
+3. **Rename the existing database** (backup before overwrite):
+   ```
+   cafe-pos.db → cafe-pos.db.old
+   ```
+4. **Copy the backup file** to `data/cafe-pos.db`
+5. **Verify file size** matches expected range (10-50 MB)
+6. **Start the application** and verify data integrity
 
 ---
 
@@ -24,420 +319,231 @@ This runbook provides complete procedures for backing up and restoring the Cafe 
 
 ### Backup Schedule
 
-| Frequency | Timing | Retention Period | Storage Location |
-|-----------|--------|------------------|------------------|
-| **Daily backup** | Each morning at 02:00 (or after business hours) | 7 days | Local external drive or network share |
-| **Weekly backup** | Sunday 02:00 | 1 month | External drive or cloud storage |
-| **Monthly archive** | Last day of month, 02:00 | Indefinite | Cloud storage or offline media |
+| Environment | Frequency | Retention | Location |
+|-------------|-----------|-----------|----------|
+| Production | Daily at 2 AM | 7 days | Local + External Drive |
+| Development | Weekly on Sunday | 4 weeks | Local only |
+| Testing | As needed | 30 days | Cloud storage |
 
-### Storage Requirements
+### Storage Locations
 
-- **Minimum:** One copy on separate physical drive from POS computer
-- **Recommended:** Primary local backup + off-site cloud copy (e.g., AWS S3, Backblaze B2)
-- **Critical backups include:** Full database file AND product-images folder
+1. **Primary:** `backups/` folder in application directory
+2. **Secondary:** External USB drive (weekly)
+3. **Tertiary:** Cloud storage (monthly, optional)
 
-### Backup Location Paths
+### Cleanup Rules
 
-```bash
-# Primary backup location (must be different disk from POS computer)
-/backups/pos-daily/YYYY/MM/DD-backup-{TIMESTAMP}.zip
+- Automatic cleanup of backups older than 7 days (production)
+- Manual review before deleting backups older than 30 days
+- Keep at least one backup from each month for compliance
 
-# Example: /backups/pos-daily/2026/11/02-backup-20261102020000.zip
 
-# Off-site cloud storage (optional but recommended)
-s3://your-cloud-bucket/cafe-pos-backups/{DATE}/
+---
+
+## Validation Checklists
+
+### Pre-Backup Checklist
+
+- [ ] Cafe POS application is closed
+- [ ] No active user sessions detected
+- [ ] Sufficient disk space available (minimum 100 MB free)
+- [ ] Backup destination is writable
+- [ ] Current database file exists and is not corrupted
+- [ ] Network connection stable (if cloud backup)
+
+### Post-Backup Checklist
+
+- [ ] Backup file created successfully
+- [ ] File size matches expected range (10-50 MB for production)
+- [ ] Integrity check passed (if verification enabled)
+- [ ] Backup stored in at least two locations (recommended)
+- [ ] Log file shows no errors
+- [ ] Timestamp on backup file is current
+- [ ] Old backups cleaned up according to retention policy
+
+### Pre-Restore Checklist
+
+- [ ] Correct backup file selected (verify timestamp)
+- [ ] Cafe POS application is closed
+- [ ] Current database backed up (create new backup before restore)
+- [ ] Sufficient disk space available
+- [ ] Administrator privileges if needed
+- [ ] Rollback plan documented
+
+### Post-Restore Checklist
+
+- [ ] Database file restored successfully
+- [ ] File size matches source backup
+- [ ] Integrity check passed
+- [ ] Application starts without errors
+- [ ] Login works correctly
+- [ ] Product catalog loads completely
+- [ ] Recent orders are visible
+- [ ] User sessions can be created
+- [ ] All features tested (POS, reporting, etc.)
+
+### Emergency Recovery Checklist
+
+- [ ] Backup file located and verified
+- [ ] Current database backed up before restore
+- [ ] Restore procedure documented
+- [ ] Test environment available for practice
+- [ ] Contact list ready (IT support, vendor)
+- [ ] Estimated recovery time documented
+
+---
+
+## Emergency Recovery
+
+### Scenario 1: Database Corruption
+
+**Symptoms:**
+- Application fails to start
+- SQLite error messages in console
+- File size is 0 bytes or unusually large
+
+**Recovery Steps:**
+
+1. **Stop the application immediately**
+2. **Locate the most recent valid backup** (check timestamps)
+3. **Create a new backup of current state** (even if corrupted) for forensics
+4. **Perform restore using Method 1 or 2**
+5. **Verify integrity and functionality**
+6. **Document the incident**
+
+### Scenario 2: Accidental Data Deletion
+
+**Symptoms:**
+- Orders missing from database
+- Products not appearing in catalog
+- User data lost
+
+**Recovery Steps:**
+
+1. **Assess the extent of data loss** (check recent orders, products)
+2. **Identify appropriate backup** (find backup before deletion occurred)
+3. **Create new backup of current state**
+4. **Restore from identified backup**
+5. **Verify all critical data is restored**
+6. **Review deletion cause and prevent recurrence**
+
+### Scenario 3: Complete System Failure
+
+**Symptoms:**
+- Operating system crash
+- Application files missing
+- Database file inaccessible
+
+**Recovery Steps:**
+
+1. **Boot from recovery media or alternate OS**
+2. **Access the data directory** (may require mounting drives)
+3. **Locate backup files** on external drive or network share
+4. **Restore to new system or repaired system**
+5. **Verify all functionality**
+6. **Update backup procedures to include off-site storage**
+
+### Recovery Time Objectives (RTO)
+
+| Scenario | Target RTO | Actual Time |
+|----------|------------|-------------|
+| Database corruption | 30 minutes | ___ |
+| Accidental deletion | 1 hour | ___ |
+| Complete system failure | 4 hours | ___ |
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+#### Issue: Backup fails with "database is locked"
+
+**Solution:**
+- Ensure Cafe POS application is completely closed
+- Check for background processes using the database:
+  ```powershell
+  Get-Process | Where-Object {$_.Path -like "*cafe-pos*"}
+  ```
+- Wait and retry backup
+
+#### Issue: Restore fails with "file is corrupted"
+
+**Solution:**
+- Verify backup file integrity before restore:
+  ```powershell
+  sqlite3 "backup-file.db" ".integrity_check"
+  ```
+- Try an older backup if available
+- Check disk for errors using `chkdsk`
+
+#### Issue: Application won't start after restore
+
+**Solution:**
+- Verify database schema matches application version:
+  ```powershell
+  sqlite3 "data/cafe-pos.db" ".schema"
+  ```
+- Run Prisma migrations if needed:
+  ```bash
+  npm run db:migrate --prefix server
+  ```
+- Check application logs for specific errors
+
+#### Issue: Products not appearing after restore
+
+**Solution:**
+- Verify products table has data:
+  ```sql
+  SELECT COUNT(*) FROM Product;
+  ```
+- Check product image paths are valid
+- Clear browser cache and localStorage
+- Re-login to refresh session
+
+### Diagnostic Commands
+
+```powershell
+# Check database file size
+Get-Item "data/cafe-pos.db" | Select-Object Name, Length, LastWriteTime
+
+# View recent backup files
+Get-ChildItem "backups/*.db" | Sort-Object LastWriteTime -Descending | Select-Object -First 10
+
+# Test SQLite integrity
+sqlite3 "data/cafe-pos.db" ".integrity_check"
+
+# List all tables and row counts
+sqlite3 "data/cafe-pos.db" "SELECT name, COUNT(*) FROM sqlite_master WHERE type='table';"
 ```
 
 ---
 
-## Pre-Backup Checks
+## Appendix
 
-### Automated Check List
+### Backup File Naming Convention
 
-Before creating a backup, verify:
-
-- [ ] No active restore operation in progress
-- [ ] Database file exists and is readable
-- [ ] Product-images directory is accessible
-- [ ] Backup destination has available space (at least 2x database size)
-- [ ] App data path is writable (`electron.getPath('userData')`)
-
-### Integrity Verification
-
-Run SQLite integrity check on current database:
-
-```bash
-node -e "
-const Database = require('better-sqlite3');
-const db = new Database('./server/data/cafe-pos.db', { readonly: true });
-try {
-  const result = db.prepare('PRAGMA integrity_check').get();
-  console.log('Integrity check:', result);
-} catch (error) {
-  console.error('Database corrupted:', error.message);
-  process.exit(1);
-}
-db.close();
-"
+```
+cafe-pos-backup-YYYYMMDD_HHMMSS.db
+Example: cafe-pos-backup-20261105_120000.db
 ```
 
-### Process State Check
+### Contact Information
 
-Ensure no active transactions that could affect backup consistency:
+| Role | Name | Contact |
+|------|------|--------|
+| System Administrator | [Name] | [Email/Phone] |
+| Database Support | [Name] | [Email/Phone] |
+| Vendor Support | [Company] | [Phone Number] |
 
-- [ ] No checkout process actively printing receipts
-- [ ] No restore operation in progress (check `desktop.log`)
-- [ ] Backup UI not currently creating a backup
+### Related Documentation
 
----
-
-## Backup Creation Procedure
-
-### Manual Backup via Desktop App
-
-1. **Open the Cafe POS application**
-2. **Navigate to Settings page** (`/settings`)
-3. **Click "Create Backup" button**
-4. **Review backup summary:**
-   - Database path displayed
-   - Product-images folder path shown
-   - Estimated backup size
-5. **Confirm backup creation**
-6. **Verify success message appears** with timestamp and backup location
-
-### Automated Backup via Script
-
-For scheduled backups, use this script:
-
-```bash
-#!/usr/bin/env node
-// scripts/backup-daily.cjs
-const path = require('path');
-const fs = require('fs');
-const Database = require('better-sqlite3');
-
-const userDataPath = path.join(process.env.APPDATA || process.env.HOME, 'Cafe POS');
-const databasePath = path.join(userDataPath, 'cafe-pos.db');
-const productImagesPath = path.join(userDataPath, 'product-images');
-const backupsPath = path.join(userDataPath, 'backups');
-
-// Create backup directory if needed
-if (!fs.existsSync(backupsPath)) {
-  fs.mkdirSync(backupsPath, { recursive: true });
-}
-
-// Get timestamp for filename
-const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '');
-const backupName = `cafe-pos-backup-${timestamp}.zip`;
-const backupPath = path.join(backupsPath, backupName);
-
-try {
-  console.log(`Creating backup: ${backupPath}`);
-  
-  // Verify source files exist
-  if (!fs.existsSync(databasePath)) {
-    throw new Error('Database file not found at: ' + databasePath);
-  }
-  
-  if (!fs.existsSync(productImagesPath)) {
-    fs.mkdirSync(productImagesPath, { recursive: true });
-  }
-
-  // Create parent directory for zip file (if it doesn't exist)
-  const backupDir = path.dirname(backupPath);
-  if (!fs.existsSync(backupDir)) {
-    fs.mkdirSync(backupDir, { recursive: true });
-  }
-
-  // Create ZIP archive with database and product images
-  // ... ZIP creation logic here
-  
-  console.log('Backup created successfully:', backupPath);
-  
-} catch (error) {
-  console.error('Backup failed:', error.message);
-  throw error;
-}
-```
-
-### Backup Validation
-
-After creating a backup, verify:
-
-1. **Check backup file exists:**
-   ```bash
-   ls -lh /backups/pos-daily/*/cafe-pos-backup-*.zip
-   ```
-
-2. **Verify ZIP integrity:**
-   ```bash
-   unzip -t /backups/pos-daily/latest/cafe-pos-backup-*.zip
-   ```
-
-3. **Confirm database snapshot matches current state:**
-   ```sql
-   sqlite3 <backup-file> "SELECT COUNT(*) FROM Order; SELECT COUNT(*) FROM Product;"
-   ```
+- [Project Status and Technical Roadmap](./PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md)
+- [Implementation Plan](./implementation_plan.md)
+- [System Architecture Documentation]
 
 ---
 
-## Restore Procedure
-
-### When to Restore
-
-Restore the database when:
-
-- ☐ Disk failure on POS computer detected
-- ☐ Database corruption reported by application
-- ☐ Failed restore operation requires safety copy recovery
-- ☐ Manual backup from external drive needs to be applied
-- ☐ Prisma migration guard detects metadata inconsistency
-
-### Pre-Restore Verification
-
-**STOP.** Before initiating restore:
-
-1. [ ] Identify the source backup file to use
-2. [ ] Verify backup was created before the failure event
-3. [ ] Confirm backup integrity (run validation steps above)
-4. [ ] **Create manual safety copy:** Copy current database to alternate location
-5. [ ] Close application (ensure no active transactions)
-
-### Restore via Desktop App
-
-1. **Open Cafe POS application**
-2. **Navigate to Settings page** (`/settings`)
-3. **Click "Restore from Backup" button**
-4. **Browse to backup ZIP file** (from external drive or network location)
-5. **Review restore summary:**
-   - Source backup path displayed
-   - Estimated data to be restored
-   - Warning messages if any (read carefully!)
-6. **Confirm you want to proceed:**
-   - ⚠️ **All unsaved work will be lost**
-   - ⚠️ **Current database contents will be replaced**
-7. **Click "Restore" and wait for completion**
-8. **Verify success message with backup location logged**
-
-### Automated Restore (Emergency)
-
-If desktop UI is unavailable, use better-sqlite3 `.backup()` method:
-
-```javascript
-const Database = require('better-sqlite3');
-
-// Open existing database in write mode
-const db = new.Database(databasePath);
-
-// Open backup file (already extracted from ZIP)
-const backup = new.Database(backupFilePath, { readonly: true });
-
-try {
-  // Use .backup() with journal-mode rollback for safe copy
-  const result = backup.backup({ 
-    filename: databasePath,
-    native: false  // Use SQLite-level copy for consistency
-  });
-  
-  console.log('Restore complete. Bytes copied:', result);
-} catch (error) {
-  console.error('Restore failed:', error.message);
-  // Trigger rollback if restore fails
-  throw error;
-} finally {
-  backup.close();
-}
-```
-
-### Rollback Procedure (If Restore Fails)
-
-**Critical:** A safety copy is created automatically before restore. If restore fails:
-
-1. **Check that safety copy exists:**
-   ```bash
-   ls -lh ~/AppData/Local/Cafe\ POS/database-backup-safety-copy.db
-   ```
-
-2. **Verify safety copy integrity:**
-   ```bash
-   sqlite3 database-backup-safety-copy.db "PRAGMA integrity_check;"
-   ```
-
-3. **Replace corrupted database with safety copy:**
-   - Use desktop app restore UI pointing to safety copy backup, OR
-   - Manually copy safety copy file back to original location
-   - Restart application
-
----
-
-## Post-Restore Validation
-
-### Database Verification
-
-After restore completes:
-
-1. **Run integrity check:**
-   ```bash
-   sqlite3 server/data/cafe-pos.db "PRAGMA integrity_check;"
-   ```
-
-2. **Verify table counts match expectations:**
-   ```sql
-   SELECT 'Order' AS table_name, COUNT(*) AS count FROM Order;
-   SELECT 'Product' AS table_name, COUNT(*) AS count FROM Product;
-   SELECT 'Category' AS table_name, COUNT(*) AS count FROM Category;
-   SELECT 'Expense' AS table_name, COUNT(*) AS count FROM Expense;
-   ```
-
-3. **Check that expected data exists:**
-   - Verify recent orders are present
-   - Confirm product photos directory is intact
-   - Check settings have reasonable defaults
-
-### Application Startup Verification
-
-1. **Close application completely** (ensure no processes running)
-2. **Restart Cafe POS**
-3. **Verify application launches successfully**
-4. **Check login persists** (if user was authenticated before restore)
-5. **Navigate to key pages:**
-   - Products page → should show menu items
-   - Orders page → history table should be populated
-   - Expenses page → past expenses visible
-   - Reports page → summary totals should load
-
-### Data Consistency Checks
-
-1. **Receipt counter:** Verify receipt number has reasonable value (not reset to 0)
-2. **Category registry:** Check `Category` table matches menu structure
-3. **Tax settings:** Verify tax rate is set appropriately for operations
-4. **Active session:** Confirm login state persisted or needs re-authentication
-
-### Photo Directory Verification
-
-1. **Confirm product-images folder exists:**
-   ```bash
-   dir "server/data/product-images"
-   ```
-
-2. **Verify expected images present:** (spot check recent products)
-
-3. **If photos missing but database intact:** May need to restore from separate backup or regenerate placeholders
-
----
-
-## Recovery Scenarios
-
-### Scenario A: Complete Disk Failure
-
-**Symptoms:** POS computer hard drive not accessible, all data lost  
-**Recovery path:**
-
-1. Replace failed drive in new system or use external drive
-2. Retrieve most recent backup from off-site storage (cloud/external drive)
-3. Copy backup database and product-images to new location
-4. Install Cafe POS application on new system
-5. Use restore UI or manual procedure to apply backup
-6. Post-restore validation per checklist above
-
-### Scenario B: Database Corruption Detected
-
-**Symptoms:** SQLite reports corruption, app won't start, or integrity check fails  
-**Recovery path:**
-
-1. Close application immediately
-2. Run integrity check to confirm corruption:
-   ```bash
-   sqlite3 server/data/cafe-pos.db "PRAGMA integrity_check;"
-   ```
-3. If corruption confirmed, locate most recent valid backup
-4. Perform restore procedure (follow warnings about data loss)
-5. Verify restored application functions normally
-
-### Scenario C: Failed Restore Requires Rollback
-
-**Symptoms:** Restore operation throws error, dialog shows failure message  
-**Recovery path:**
-
-1. **Do NOT attempt another restore immediately**
-2. Check `desktop.log` for detailed error (location shown in dialog)
-3. Verify safety copy was created and is intact
-4. If safety copy exists, use it to replace current database
-5. Attempt restore again with fresh backup source
-6. If multiple failures occur, contact support or check logs
-
-### Scenario D: Partial Data Loss After Power Failure
-
-**Symptoms:** Application starts but some recent orders missing  
-**Recovery path:**
-
-1. Note which receipt numbers appear in history (identify gap)
-2. Locate backup from time before power failure
-3. Consider restore if data gap is unacceptable
-4. Otherwise, application may be usable with incomplete history
-
----
-
-## Migration Guard Behavior
-
-### How It Works
-
-When applying `20261026175721_add_pos_core_models` migration:
-
-1. **Guard checks `_prisma_migrations` table:**
-   - If table doesn't exist → migration applies normally (first-run)
-   - If table exists and contains migration record → migration skipped
-
-2. **If migration already applied to this database:**
-   - Guard prevents reapplication
-   - This protects against accidental destructive operations
-
-3. **Limitations:**
-   - Guard does NOT verify SQL compatibility with existing data
-   - Corrupted metadata could allow migration to reapply
-   - Destructive operations (DROP TABLE) may still affect data if guard bypassed
-
-### Upgrade Path Requirements
-
-Before migrating from old schema to new schema:
-
-1. **Create backup:** Follow backup procedure above
-2. **Test on copy:** Run migration against database copy with representative data
-3. **Verify row counts:** Ensure no accidental data loss
-4. **Review migration SQL:** Confirm compatibility guarantees in migration file
-5. **Document findings:** Add notes to runbook or changelog
-
-### If Migration Fails
-
-If applying the migration encounters errors:
-
-1. Check `desktop.log` for specific error message
-2. Verify `_prisma_migrations` table structure is intact
-3. Review migration SQL for syntax errors or compatibility issues
-4. If necessary, skip migration and manually update schema (consult developer)
-
----
-
-## Emergency Contacts
-
-If you encounter an issue that exceeds this runbook:
-
-- **Development team:** [email/team channel]
-- **Critical incidents:** Include screenshot of error dialog and `desktop.log` path
-- **Data recovery specialist:** If database corruption cannot be resolved
-
----
-
-## Related Documentation
-
-- [`PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md`](../project-audit/PROJECT-STATUS-AND-TECHNICAL-ROADMAP.md) - Overall project status and known issues
-- [`.claude/rules/database.md`](../.claude/rules/database.md) - Database safety guidelines
-- [`electron/main.cjs`](../electron/main.cjs) - Backup/restore implementation code
-
----
-
-## Revision History
-
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2026-11-02 | Development team | Initial runbook creation following fixes to backup error handling and session persistence issues |
+**Document Owner:** AI Agent  
+**Last Updated:** 2026-11-05  
+**Review Required:** Before next backup operation
